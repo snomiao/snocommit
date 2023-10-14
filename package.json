@@ -1,6 +1,6 @@
 {
   "name": "snocommit",
-  "version": "1.7.240",
+  "version": "1.8.0",
   "description": "A Simple way to commit changes in current folder.",
   "keywords": [
     "cli",
