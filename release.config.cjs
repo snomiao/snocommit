@@ -1,4 +1,4 @@
-// semantic
+// pnpm i -D semantic-release @semantic-release/changelog
 /**
  * @type {import('semantic-release').GlobalConfig}
  */
@@ -16,6 +16,7 @@ module.exports = {
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     "@semantic-release/npm",
-    "@semantic-release/git"
+    "@semantic-release/git",
+    "@semantic-release/github"
   ]
 };

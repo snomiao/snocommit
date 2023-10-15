@@ -41,6 +41,7 @@
     "prepack": "npm run build"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
     "@types/node": "18.8.3",
     "@types/yargs": "^17.0.13",
     "async-exec": "^1.1.0",
