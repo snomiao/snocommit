@@ -37,6 +37,7 @@
   ],
   "scripts": {
     "build": "npx snobuild && tsx postbuild.ts && npm link",
+    "test": "echo no tests yet",
     "prepack": "npm run build"
   },
   "devDependencies": {
