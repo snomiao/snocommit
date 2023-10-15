@@ -11,7 +11,10 @@
   "bugs": {
     "url": "https://github.com/snomiao/js/issues?q=is%3Aissue+is%3Aopen+snocommit"
   },
-  "repository": "https://github.com/snomiao/js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/snomiao/js.git"
+  },
   "license": "MIT",
   "author": "Snowstar Miao <snomiao@gmail.com>",
   "type": "module",
