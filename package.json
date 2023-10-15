@@ -7,13 +7,13 @@
     "git",
     "commit"
   ],
-  "homepage": "https://github.com/snomiao/js#readme",
+  "homepage": "https://github.com/snomiao/snocommit#readme",
   "bugs": {
-    "url": "https://github.com/snomiao/js/issues?q=is%3Aissue+is%3Aopen+snocommit"
+    "url": "https://github.com/snomiao/snocommit/issues?q=is%3Aissue+is%3Aopen+snocommit"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/snomiao/js.git"
+    "url": "git+https://github.com/snomiao/snocommit.git"
   },
   "license": "MIT",
   "author": "Snowstar Miao <snomiao@gmail.com>",
