@@ -43,6 +43,31 @@ snocommit docs <part> [description..]
 snocommit fix <part> [description..]
 snocommit feat <part> [description..]
 snocommit breaking <part> [description..]
+
+# examples
+
+styles input larger placeholder
+# => styles(input): larger placeholder
+
+docs button with translate
+# => docs(button): with translate
+
+cd src/Header
+fix . Avatar position
+# => fix(Header): Avatar position
+cd src/Header
+
+fix . !Avatar position
+# => fix(Header): Avatar position
+# =>
+# => BREAKING CHANGE: Avatar position
+
+cd src/Footer
+feat . done skeleton
+# => feat(Footer): done skeleton
+
+chore gitlab-ci split integrate tests from unit tests
+# => chore(gitlab-ci): split integrate tests from unit tests
 ```
 
 ## About
