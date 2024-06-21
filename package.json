@@ -40,8 +40,8 @@
   ],
   "scripts": {
     "build": "npx snobuild && tsx postbuild.ts && npm link",
-    "test": "echo no tests yet",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test": "echo no tests yet"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
@@ -58,4 +58,3 @@
     "yargs": "^17.6.0"
   }
 }
-
