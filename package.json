@@ -45,10 +45,9 @@
     "release": "bun x commit-and-tag-version && git push --follow-tags && npm publish",
     "test": "bun test"
   },
-  "dependencies": {
-    "bun": "^1.1.18"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "bun": "^1.1.18",
     "@semantic-release/changelog": "^6.0.3",
     "@types/bun": "^1.1.6",
     "@types/jest": "^29.5.12",
