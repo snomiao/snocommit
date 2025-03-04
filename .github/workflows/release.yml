@@ -8,26 +8,27 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18]
+        node-version: [20]
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-            version: 8
+          registry-url: "https://npm.pkg.github.com/"
+          scope: "@foo"
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-      - run: pnpm install
-      - run: pnpm test
-      - run: pnpm build
+
+      - run: bun install
+      - run: bun run test
+      - run: bun run build
       - name: Release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GIT_AUTHOR_NAME: 'snomiao'
-          GIT_AUTHOR_EMAIL: 'snomiao@gmail.com'
-          GIT_COMMITTER_NAME: 'snomiao'
-          GIT_COMMITTER_EMAIL: 'snomiao@gmail.com'
+          GIT_AUTHOR_NAME: "snomiao"
+          GIT_AUTHOR_EMAIL: "snomiao@gmail.com"
+          GIT_COMMITTER_NAME: "snomiao"
+          GIT_COMMITTER_EMAIL: "snomiao@gmail.com"
         run: npx semantic-release
