@@ -3,7 +3,7 @@ import commitTypes from "./commitTypes";
 import maybeQuoted from "./maybeQuoted";
 import scopeParse from "./scopeParse";
 
-type Type = typeof commitTypes[number];
+type Type = (typeof commitTypes)[number];
 type SCOPE = "-" | "." | "@" | ":" | string;
 
 // const cmdActions: Record<Type, (scope: SCOPE, desc: string) => Promise<any> | any> = {
@@ -29,7 +29,11 @@ type snoCommitOptions = {
   scope: SCOPE;
   desc: string;
 };
-export default async function snocommit({ type, scope, desc }: snoCommitOptions) {
+export default async function snocommit({
+  type,
+  scope,
+  desc,
+}: snoCommitOptions) {
   if (!desc) throw new Error("missing desc");
 
   // in future:
@@ -53,7 +57,9 @@ export default async function snocommit({ type, scope, desc }: snoCommitOptions)
   // const valid = Boolean(cmdActions[type]);
   // if (valid) {
 
-  const msgtitle = `${type}${maybeQuoted(parsedPart)}: ${desc.slice(0, 35)}`;
+  const msgtitle = `${type}${maybeQuoted(
+    parsedPart.replace(/^main$/, "")
+  )}: ${desc.slice(0, 35)}`;
   const desc2 = ((msgtitle.startsWith("!") && "BREAKING CHANGE:") || "") + desc;
   const msgcmd = `-m "${msgtitle}" -m "${desc2}"`;
   const gitsync_cmd = `git pull && git push`;
