@@ -38,7 +38,7 @@
     "*.ts"
   ],
   "scripts": {
-    "build": "bun build index.ts --outdir=dist && bun build:umd",
+    "build": "bunx snobuild",
     "build:umd": "bunx rollup dist/index.js --file dist/index.umd.js --format umd --name \"snocommit\"",
     "prepack": "npm run build",
     "prerelease": "bun run build && bun run test",
@@ -47,13 +47,13 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "bun": "^1.1.18",
     "@semantic-release/changelog": "^6.0.3",
     "@types/bun": "^1.1.6",
     "@types/jest": "^29.5.12",
     "@types/node": "18.8.3",
     "@types/yargs": "^17.0.13",
     "async-exec": "^1.1.0",
+    "bun": "^1.1.18",
     "chalk": "^5.1.0",
     "p-map": "^5.5.0",
     "pkg-up": "^4.0.0",
