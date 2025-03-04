@@ -1,8 +1,8 @@
 # snocommit
 
-A Simple way to commit changes in current folder.
+A Simple way to create [conventional-commits](https://www.conventionalcommits.org) in current folder.
 
-Example: `fix <part> [description..]`
+Example: `fix <part-name> [description..]`
 
 part can be a dot '.' which means you want use current folder name as part
 
