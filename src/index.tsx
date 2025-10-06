@@ -1,14 +1,13 @@
-import snorun from "snorun";
-import commitTypes from "./commitTypes";
-import zChat from "z-chat-completion";
-import { readFile, writeFile } from "fs/promises";
-import z from "zod";
-import path from "path";
-import { DIE } from "phpdie";
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { execa } from "execa";
 import { packageUp } from "package-up";
-import OpenAI from "openai";
-import { promptT } from "./promptT";
+import { DIE } from "phpdie";
+import snorun from "snorun";
 import zChatCompletion from "z-chat-completion";
+import z from "zod";
+import commitTypes from "./commitTypes";
+import { promptT } from "./promptT";
 
 type Type = (typeof commitTypes)[number];
 type Scope = "-" | "." | "@" | ":" | (string & {});
@@ -42,7 +41,7 @@ export default async function snocommit({
     type,
     scope,
     desc,
-    gitDiffMap
+    gitDiffMap,
   );
 
   await gitCommit(commitMessage);
@@ -80,7 +79,7 @@ async function getStagedFileChanges(): Promise<string[]> {
 }
 
 async function getTruncatedGitDiffOfFiles(
-  files: string[]
+  files: string[],
 ): Promise<Record<string, string>> {
   const diffs: Record<string, string> = {};
   for (const file of files) {
@@ -101,27 +100,29 @@ async function generateCommitMessage(
   type: Type,
   scope: Scope,
   desc: string,
-  diffMap: Record<string, string>
+  diffMap: Record<string, string>,
 ): Promise<string> {
-  const OPENAI_API_KEY = await getOpenAIApiKey();
+  process.env.OPENAI_API_KEY = await getOpenAIApiKey(); // ensure it's set
+
   const diff = Object.entries(diffMap)
     .map(([file, diff]) => `--- a/${file}\n+++ b/${file}\n${diff}`)
     .join("\n");
 
-  let scopeString = scope && scope !== "." ? `(${scope})` : "";
+  const scopeString = scope && scope !== "." ? `(${scope})` : "";
 
   const generated = await zChatCompletion({
     type: z.enum(commitTypes),
     scope: z.string(),
     title: z.string().min(1).max(72),
-    desc: z.string().min(1).max(200),
-    isBraking: z.boolean(),
+    body: z.string().min(1).max(200),
+    is_BREAKING_CHANGE: z.boolean(),
   })`
 Assist me in generating a conventional commit message based on the following information.
 
+cwd: ${process.cwd()}
 Suggested Commit Type: ${type}
-Scope: ${scopeString || "none"}
-Short Description: ${desc}
+Suggested Scope: ${scopeString || "none"}
+Short Description Provided by user: ${desc}
 
 Modified Files:
 ${Object.keys(diffMap).join("\n")}
@@ -133,13 +134,17 @@ ${diff}
 
   `;
 
-  return `${generated.type}${generated.scope}: ${generated.desc}`; // raw
+  return `${generated.type}${generated.scope?.replace(
+    /^\(?(.+?)\)?$/,
+    "($1)",
+  )}${generated.is_BREAKING_CHANGE ? "!" : ""}: ${generated.title}\n\n${
+    generated.body
+  }`; // raw
   // return `${type}${scopeString}: ${desc}`; // raw
 }
 
 async function gitCommit(message: string): Promise<void> {
-  const escapedMessage = message.replace(/"/g, '\\"');
-  await snorun(`git commit -m "${escapedMessage}"`);
+  await execa("git", ["commit", "-m", message]);
 }
 
 async function gitPullAndPush(): Promise<void> {
@@ -161,14 +166,14 @@ async function getOpenAIApiKey(): Promise<string> {
       const rc = zSnocommitRC.parse(JSON.parse(rcFile));
       key = await validApiKey(rc.OPENAI_API_KEY);
       if (key) return key;
-    } catch (error) {
+    } catch (_error) {
       // ignore error if file doesn't exist or is invalid
     }
   }
 
   // 3. ask user to paste it
   key = await validApiKey(
-    await promptT`Please enter your OpenAI API Key (sk-...):`
+    await promptT`Please enter your OpenAI API Key (sk-...):`,
   );
   if (key) {
     // save to ~/.snocommitrc.json
@@ -183,7 +188,7 @@ async function getOpenAIApiKey(): Promise<string> {
 
   // 4. if not found, die
   DIE(
-    "No valid OPENAI_API_KEY provided. Please set it as an environment variable or in ~/.snocommitrc.json"
+    "No valid OPENAI_API_KEY provided. Please set it as an environment variable or in ~/.snocommitrc.json",
   );
 }
 
@@ -194,7 +199,7 @@ async function validApiKey(key?: string): Promise<string | null> {
     if (key.startsWith("sk-") && key.length > 20) {
       return key.trim();
     }
-  } catch (error) {
+  } catch (_error) {
     // ignore validation errors
   }
   return null;

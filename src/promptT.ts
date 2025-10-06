@@ -1,4 +1,4 @@
-import readline from "readline";
+import readline from "node:readline";
 import tsaComposer from "tsa-composer";
 
 // prompt user for input

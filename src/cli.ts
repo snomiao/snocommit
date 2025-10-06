@@ -5,9 +5,9 @@ import snocommit from "./index";
 cli().then();
 
 async function cli() {
-  const [node, js, ...rest] = process.argv;
+  const [_node, js, ...rest] = process.argv;
   const cmdFromJS = commitTypes.find(
-    (e) => e === js.match(/(?:cli-|bin\/)(.*?)(?:\.[mc]?[tj]s)?$/)?.[1]
+    (e) => e === js.match(/(?:cli-|bin\/)(.*?)(?:\.[mc]?[tj]s)?$/)?.[1],
   );
   const { type, scope, descs } = cmdFromJS
     ? (() => {
