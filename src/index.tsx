@@ -110,6 +110,9 @@ async function generateCommitMessage(
 
   const scopeString = scope && scope !== "." ? `(${scope})` : "";
 
+  // todo: show spinner when generating
+  console.log("Generating commit message...");
+
   const generated = await zChatCompletion({
     type: z.enum(commitTypes),
     scope: z.string(),
@@ -131,7 +134,6 @@ Detailed Git Diff:
 \`\`\`diff
 ${diff}
 \`\`\`
-
   `;
 
   return `${generated.type}${generated.scope?.replace(
@@ -144,6 +146,7 @@ ${diff}
 }
 
 async function gitCommit(message: string): Promise<void> {
+  console.log("Committing with message:\n", message);
   await execa("git", ["commit", "-m", message]);
 }
 
