@@ -8,6 +8,7 @@ import { DIE } from "phpdie";
 import { packageUp } from "package-up";
 import OpenAI from "openai";
 import { promptT } from "./promptT";
+import zChatCompletion from "z-chat-completion";
 
 type Type = (typeof commitTypes)[number];
 type Scope = "-" | "." | "@" | ":" | (string & {});
@@ -30,13 +31,13 @@ export default async function snocommit({
   }
 
   await gitAddByScope(scope);
-  const stagedFiles = await getStagedFiles();
-  if (stagedFiles.length === 0) {
+  const stagedFileChanges = await getStagedFileChanges();
+  if (stagedFileChanges.length === 0) {
     console.log("No files staged to commit.");
     return;
   }
 
-  const gitDiffMap = await getTruncatedGitDiffOfFiles(stagedFiles);
+  const gitDiffMap = await getTruncatedGitDiffOfFiles(stagedFileChanges);
   const commitMessage = await generateCommitMessage(
     type,
     scope,
@@ -70,8 +71,8 @@ async function gitAddByScope(scope: Scope): Promise<void> {
   await snorun(`git add ${scope}`);
 }
 
-async function getStagedFiles(): Promise<string[]> {
-  const stdout = await snorun("git diff --cached --name-only").stdout;
+async function getStagedFileChanges(): Promise<string[]> {
+  const stdout = await snorun("git status --porcelain").stdout;
   return stdout
     .split("\n")
     .map((line) => line.trim())
@@ -107,9 +108,33 @@ async function generateCommitMessage(
     .map(([file, diff]) => `--- a/${file}\n+++ b/${file}\n${diff}`)
     .join("\n");
 
-  const scopeString = scope && scope !== "." ? `(${scope})` : "";
+  let scopeString = scope && scope !== "." ? `(${scope})` : "";
 
-  return `${type}${scopeString}: ${desc}`;
+  const generated = await zChatCompletion({
+    type: z.enum(commitTypes),
+    scope: z.string(),
+    title: z.string().min(1).max(72),
+    desc: z.string().min(1).max(200),
+    isBraking: z.boolean(),
+  })`
+Assist me in generating a conventional commit message based on the following information.
+
+Suggested Commit Type: ${type}
+Scope: ${scopeString || "none"}
+Short Description: ${desc}
+
+Modified Files:
+${Object.keys(diffMap).join("\n")}
+
+Detailed Git Diff:
+\`\`\`diff
+${diff}
+\`\`\`
+
+  `;
+
+  return `${generated.type}${generated.scope}: ${generated.desc}`; // raw
+  // return `${type}${scopeString}: ${desc}`; // raw
 }
 
 async function gitCommit(message: string): Promise<void> {
