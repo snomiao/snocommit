@@ -24,26 +24,37 @@
   "module": "index.ts",
   "types": "./index.ts",
   "bin": {
-    "breaking": "dist/cli-breaking.mjs",
-    "chore": "dist/cli-chore.mjs",
-    "docs": "dist/cli-docs.mjs",
-    "feat": "dist/cli-feat.mjs",
-    "fix": "dist/cli-fix.mjs",
-    "refactor": "dist/cli-refactor.mjs",
-    "snocommit": "dist/cli.mjs",
-    "styles": "dist/cli-styles.mjs"
+    "snocommit": "dist/cli-snocommit.js",
+    "breaking": "dist/cli-breaking.js",
+    "chore": "dist/cli-chore.js",
+    "docs": "dist/cli-docs.js",
+    "feat": "dist/cli-feat.js",
+    "fix": "dist/cli-fix.js",
+    "refactor": "dist/cli-refactor.js",
+    "styles": "dist/cli-styles.js"
   },
   "files": [
     "dist",
     "*.ts"
   ],
   "scripts": {
-    "build": "bunx snobuild",
-    "build:umd": "bunx rollup dist/index.js --file dist/index.umd.js --format umd --name \"snocommit\"",
+    "build": "bun build --outdir dist --target=node --packages=external src/cli.ts src/index.tsx",
+    "postbuild": "bun run postbuild.ts",
     "prepack": "npm run build",
     "prerelease": "bun run build && bun run test",
     "release": "bun x commit-and-tag-version && git push --follow-tags && npm publish",
     "test": "bun test"
+  },
+  "dependencies": {
+    "ink": "^6.3.1",
+    "openai": "^6.1.0",
+    "package-up": "^5.0.0",
+    "phpdie": "^1.7.0",
+    "react": "^19.2.0",
+    "snorun": "^1.3.239",
+    "tsa-composer": "^2.0.0",
+    "z-chat-completion": "^0.1.6",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
@@ -58,7 +69,6 @@
     "pkg-up": "^4.0.0",
     "semantic-release": "^22.0.5",
     "snobuild": "^3.5.0",
-    "snorun": "^1.3.239",
     "tsx": "3.10.1",
     "typescript": "^5.5.4",
     "yargs": "^17.6.0"
