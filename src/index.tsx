@@ -7,6 +7,7 @@ import path from "path";
 import { DIE } from "phpdie";
 import { packageUp } from "package-up";
 import OpenAI from "openai";
+import { promptT } from "./promptT";
 
 type Type = (typeof commitTypes)[number];
 type Scope = "-" | "." | "@" | ":" | (string & {});
@@ -140,7 +141,22 @@ async function getOpenAIApiKey(): Promise<string> {
     }
   }
 
-  // 3. if not found, die
+  // 3. ask user to paste it
+  key = await validApiKey(
+    await promptT`Please enter your OpenAI API Key (sk-...):`
+  );
+  if (key) {
+    // save to ~/.snocommitrc.json
+    if (home) {
+      const rcPath = path.join(home, ".snocommitrc.json");
+      const rc = { OPENAI_API_KEY: key };
+      await writeFile(rcPath, JSON.stringify(rc, null, 2), "utf-8");
+      console.log(`Saved OpenAI API Key to ${rcPath}`);
+    }
+    return key;
+  }
+
+  // 4. if not found, die
   DIE(
     "No valid OPENAI_API_KEY provided. Please set it as an environment variable or in ~/.snocommitrc.json"
   );
