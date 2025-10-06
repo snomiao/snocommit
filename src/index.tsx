@@ -117,7 +117,7 @@ async function generateCommitMessage(
     type: z.enum(commitTypes),
     scope: z.string(),
     title: z.string().min(1).max(72),
-    body: z.string().min(1).max(200),
+    body: z.string().min(1),
     is_BREAKING_CHANGE: z.boolean(),
   })`
 Assist me in generating a conventional commit message based on the following information.
