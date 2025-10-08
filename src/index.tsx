@@ -123,9 +123,7 @@ async function generateCommitMessage(
       body: z.string().min(1),
       is_BREAKING_CHANGE: z.boolean(),
     },
-    {
-      model,
-    },
+    { model },
   )`
 Assist me in generating a conventional commit message based on the following information.
 
@@ -212,16 +210,14 @@ async function getOpenAIApiKey(): Promise<string> {
 }
 
 async function validApiKey(key?: string): Promise<string | null> {
-  // bypass validation for now
-  return key!;
-  // if (!key) return null;
-  // try {
-  //   // Use a simple validation - check if key starts with sk- and has reasonable length
-  //   if (key.startsWith("sk-") && key.length > 20) {
-  //     return key.trim();
-  //   }
-  // } catch (_error) {
-  //   // ignore validation errors
-  // }
-  // return null;
+  if (!key) return null;
+  try {
+    // Use a simple validation - check if key starts with sk- and has reasonable length
+    if (key.startsWith("sk-") && key.length > 20) {
+      return key.trim();
+    }
+  } catch (_error) {
+    // ignore validation errors
+  }
+  return null;
 }
