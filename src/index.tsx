@@ -212,14 +212,16 @@ async function getOpenAIApiKey(): Promise<string> {
 }
 
 async function validApiKey(key?: string): Promise<string | null> {
-  if (!key) return null;
-  try {
-    // Use a simple validation - check if key starts with sk- and has reasonable length
-    if (key.startsWith("sk-") && key.length > 20) {
-      return key.trim();
-    }
-  } catch (_error) {
-    // ignore validation errors
-  }
-  return null;
+  // bypass validation for now
+  return key!;
+  // if (!key) return null;
+  // try {
+  //   // Use a simple validation - check if key starts with sk- and has reasonable length
+  //   if (key.startsWith("sk-") && key.length > 20) {
+  //     return key.trim();
+  //   }
+  // } catch (_error) {
+  //   // ignore validation errors
+  // }
+  // return null;
 }
