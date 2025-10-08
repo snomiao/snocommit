@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execa } from "execa";
+import type { ChatModel } from "openai/resources";
 import { packageUp } from "package-up";
 import { DIE } from "phpdie";
 import snorun from "snorun";
@@ -111,15 +112,21 @@ async function generateCommitMessage(
   const scopeString = scope && scope !== "." ? `(${scope})` : "";
 
   // todo: show spinner when generating
-  console.log("Generating commit message...");
+  const model = "gpt-5-nano" satisfies ChatModel;
+  console.log(`Generating commit message with ${model}...`);
 
-  const generated = await zChatCompletion({
-    type: z.enum(commitTypes),
-    scope: z.string(),
-    title: z.string().min(1).max(72),
-    body: z.string().min(1),
-    is_BREAKING_CHANGE: z.boolean(),
-  })`
+  const generated = await zChatCompletion(
+    {
+      type: z.enum(commitTypes),
+      scope: z.string(),
+      title: z.string().min(1).max(72),
+      body: z.string().min(1),
+      is_BREAKING_CHANGE: z.boolean(),
+    },
+    {
+      model,
+    },
+  )`
 Assist me in generating a conventional commit message based on the following information.
 
 cwd: ${process.cwd()}
@@ -156,42 +163,49 @@ async function gitPullAndPush(): Promise<void> {
 }
 
 async function getOpenAIApiKey(): Promise<string> {
-  // 1. check process.env.OPENAI_API_KEY
-  let key = await validApiKey(process.env.OPENAI_API_KEY);
-  if (key) return key;
-
-  // 2. check ~/.snocommitrc.json
   const home = process.env.HOME || process.env.USERPROFILE;
-  if (home) {
-    try {
-      const rcPath = path.join(home, ".snocommitrc.json");
-      const rcFile = await readFile(rcPath, "utf-8");
-      const rc = zSnocommitRC.parse(JSON.parse(rcFile));
-      key = await validApiKey(rc.OPENAI_API_KEY);
+
+  return (
+    (await (async () => {
+      // 2. check ~/.snocommitrc.json
+      if (home) {
+        try {
+          const rcPath = path.join(home, ".snocommitrc.json");
+          const rcFile = await readFile(rcPath, "utf-8");
+          const rc = zSnocommitRC.parse(JSON.parse(rcFile));
+          const key = await validApiKey(rc.OPENAI_API_KEY);
+          if (key) return key;
+        } catch (_error) {
+          // ignore error if file doesn't exist or is invalid
+        }
+      }
+    })()) ||
+    (await (async () => {
+      // 1. check process.env.OPENAI_API_KEY
+      const key = await validApiKey(process.env.OPENAI_API_KEY);
       if (key) return key;
-    } catch (_error) {
-      // ignore error if file doesn't exist or is invalid
-    }
-  }
+    })()) ||
+    (await (async () => {
+      // 3. ask user to paste it
+      const key = await validApiKey(
+        await promptT`Please enter your OpenAI API Key (sk-...):`,
+      );
 
-  // 3. ask user to paste it
-  key = await validApiKey(
-    await promptT`Please enter your OpenAI API Key (sk-...):`,
-  );
-  if (key) {
-    // save to ~/.snocommitrc.json
-    if (home) {
-      const rcPath = path.join(home, ".snocommitrc.json");
-      const rc = { OPENAI_API_KEY: key };
-      await writeFile(rcPath, JSON.stringify(rc, null, 2), "utf-8");
-      console.log(`Saved OpenAI API Key to ${rcPath}`);
-    }
-    return key;
-  }
-
-  // 4. if not found, die
-  DIE(
-    "No valid OPENAI_API_KEY provided. Please set it as an environment variable or in ~/.snocommitrc.json",
+      if (key) {
+        // save to ~/.snocommitrc.json
+        if (home) {
+          const rcPath = path.join(home, ".snocommitrc.json");
+          const rc = { OPENAI_API_KEY: key };
+          await writeFile(rcPath, JSON.stringify(rc, null, 2), "utf-8");
+          console.log(`Saved OpenAI API Key to ${rcPath}`);
+        }
+        return key;
+      }
+    })()) ||
+    // 4. if not found, die
+    DIE(
+      "No valid OPENAI_API_KEY provided. Please set it as an environment variable or in ~/.snocommitrc.json",
+    )
   );
 }
 
