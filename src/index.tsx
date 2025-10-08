@@ -143,6 +143,12 @@ Detailed Git Diff:
 \`\`\`diff
 ${diff}
 \`\`\`
+
+Commit Message Format:
+<type><scope>: <title>
+
+<body>
+[BREAKING CHANGE: <description of breaking change>s]
   `;
 
   return `${generated.type}${generated.scope?.replace(
