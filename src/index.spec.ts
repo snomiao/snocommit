@@ -1,12 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import snocommit from "./index.tsx";
 
 describe("snocommit", () => {
-  it("should be a function", () => {
-    expect(typeof snocommit).toBe("function");
+  it("should be a function export by default", async () => {
+    const mod = await import("./index.tsx");
+    expect(typeof mod.default).toBe("function");
   });
 
-  // TODO: Add more comprehensive tests
-  // Note: This function interacts with git and OpenAI API,
-  // so tests may require mocking or integration setup
+  it("should export getRecentCommits helper", async () => {
+    const mod = await import("./index.tsx");
+    expect(typeof mod.getRecentCommits).toBe("function");
+  });
 });

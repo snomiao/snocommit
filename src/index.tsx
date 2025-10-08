@@ -104,6 +104,7 @@ async function generateCommitMessage(
   diffMap: Record<string, string>,
 ): Promise<string> {
   process.env.OPENAI_API_KEY = await getOpenAIApiKey(); // ensure it's set
+  const recentCommits = await getRecentCommits();
 
   const diff = Object.entries(diffMap)
     .map(([file, diff]) => `--- a/${file}\n+++ b/${file}\n${diff}`)
@@ -131,6 +132,9 @@ cwd: ${process.cwd()}
 Suggested Commit Type: ${type}
 Suggested Scope: ${scopeString || "none"}
 Short Description Provided by user: ${desc}
+
+Recent Commits:
+${recentCommits}
 
 Modified Files:
 ${Object.keys(diffMap).join("\n")}
@@ -220,4 +224,26 @@ async function validApiKey(key?: string): Promise<string | null> {
     // ignore validation errors
   }
   return null;
+}
+
+export async function getRecentCommits(count = 5): Promise<string> {
+  try {
+    const stdout = await snorun(
+      `git log -n ${count} --pretty=format:%h\t%an\t%ad\t%s --date=short`,
+    ).stdout;
+
+    if (!stdout || stdout.trim().length === 0)
+      return "(no recent commits found)";
+
+    return stdout
+      .split("\n")
+      .map((line) => {
+        const [hash, author, date, ...msgParts] = line.split("\t");
+        const msg = msgParts.join("\t");
+        return `- ${hash} | ${author} | ${date} | ${msg}`;
+      })
+      .join("\n");
+  } catch (_err) {
+    return "(unable to read recent commits)";
+  }
 }
