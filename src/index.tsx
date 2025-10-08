@@ -154,7 +154,9 @@ ${diff}
 
 async function gitCommit(message: string): Promise<void> {
   console.log("Committing with message:\n", message);
-  await execa("git", ["commit", "-m", message]);
+  // await execa("git", ["commit", "-m", message]);
+  const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  await snorun('git commit -m"' + safeMessage + '"');
 }
 
 async function gitPullAndPush(): Promise<void> {
