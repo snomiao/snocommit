@@ -1,6 +1,6 @@
 {
   "name": "snocommit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A Simple way to commit changes in current folder.",
   "keywords": [
     "cli",
@@ -53,7 +53,7 @@
     "package-up": "^5.0.0",
     "phpdie": "^1.7.0",
     "react": "^19.2.0",
-    "snorun": "^1.4.0",
+    "snorun": "^1.6.2",
     "tsa-composer": "^3.0.0",
     "z-chat-completion": "^0.1.6",
     "zod": "^4.1.11"

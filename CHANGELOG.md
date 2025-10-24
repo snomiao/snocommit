@@ -1,7 +1,32 @@
-# Change Log
+# Changelog
 
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
+
+## [0.1.0](https://github.com/snomiao/snocommit/compare/v1.1.0...v0.1.0) (2025-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* mention breaking\n\nThis change introduces a breaking change by modifying the application entry point (src/index.tsx). Downstream consumers may need to update their usage or import paths to align with the new initialization behavior.\n\n[BREAKING CHANGE: The public API exposed by src/index.tsx has changed, requiring downstream code updates to accommodate the new entry point behavior.]
+
+### Features
+
+* add commit logging and TODO spinner note ([9e1bafb](https://github.com/snomiao/snocommit/commit/9e1bafbb42161a774ba571e5062162b5cc0c6f79))
+* add tsa-composer ([633f502](https://github.com/snomiao/snocommit/commit/633f502ef3a93eea801f544d89431610959d926d))
+* feat: add getRecentCommits helper and include in commit message creation\n\nImplemented getRecentCommits(count) in src/index.tsx to fetch and format recent git commits. Exported the helper for external usage. Updated generateCommitMessage to include a 'Recent Commits' section using the helper. Adjusted tests to verify the default export is a function and that getRecentCommits is exported. Includes error handling: returns '(no recent commits found)' or '(unable to read recent commits)' on failure. ([df24b7e](https://github.com/snomiao/snocommit/commit/df24b7eb7d2e494fc10eacbe1f8247c19e0de5e1))
+* Import z-chat-completion and integrate it into commit message generation. Replace getStagedFiles with getStagedFileChanges, update gitDiffMap source, make scopeString mutable, and use zChatCompletion( ([5a0e5b7](https://github.com/snomiao/snocommit/commit/5a0e5b7ff7c284a7a13c029d457e1cab87e96e03))
+* openai ([a7ae755](https://github.com/snomiao/snocommit/commit/a7ae7553caea583f06978868db016a85a8edb511))
+
+
+### Bug Fixes
+
+* allow commit message body without 200-char limit ([4aab473](https://github.com/snomiao/snocommit/commit/4aab4733fbf9495878580906d54d7ddc3f63d73e))
+* bypass api key validation\n\nIn src/index.tsx, bypasses validation in validApiKey by returning the provided key directly (using key!). The previous validation logic is commented out. This is a temporary change to bypass API key validation during development and should be revisited to reintroduce proper validation. ([33b33b2](https://github.com/snomiao/snocommit/commit/33b33b22b969eda9728ad44f2cd5e3069d07b6ad))
+* format code and fix git commit command ([97adb07](https://github.com/snomiao/snocommit/commit/97adb07b5090f700659a4bd47ef1f49ea41f812f))
+* mention breaking\n\nThis change introduces a breaking change by modifying the application entry point (src/index.tsx). Downstream consumers may need to update their usage or import paths to align with the new initialization behavior.\n\n[BREAKING CHANGE: The public API exposed by src/index.tsx has changed, requiring downstream code updates to accommodate the new entry point behavior.] ([da07aec](https://github.com/snomiao/snocommit/commit/da07aec522819e9c0d9952a43446fbb142a34429))
+* nano ([49c4751](https://github.com/snomiao/snocommit/commit/49c4751ce2a4a93eb31f7d38684b6976c195f025))
+* safemessage ([9f34a31](https://github.com/snomiao/snocommit/commit/9f34a31c743b6bf95882862fadb545dc495e4154))
+* validate again\n\n- Re-enabled actual validation in validApiKey: if key is provided and starts with 'sk-' and length > 20, return trimmed key; otherwise return null.\n- Minor formatting adjustments in generateCommitMessage: cleaned up parameter destructuring and string formatting to ensure proper scope handling and newline placement.\n- No breaking changes. ([daf8c11](https://github.com/snomiao/snocommit/commit/daf8c11755503132760e55542da8046c691c68fc))
 
 # 1.7.0 (2023-01-08)
 
