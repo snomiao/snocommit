@@ -2,7 +2,7 @@ import readline from "node:readline";
 import tsaComposer from "tsa-composer";
 
 // prompt user for input
-export const prompt = async (question: string): Promise<string> => {
+const prompt = async (question: string): Promise<string> => {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
