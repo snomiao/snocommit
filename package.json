@@ -18,7 +18,7 @@
   "exports": {
     "require": "./dist/index.cjs",
     "import": "./dist/index.js",
-    "types": "./index.ts"
+    "types": "./src/index.ts"
   },
   "main": "dist/index.min.cjs",
   "module": "index.ts",
