@@ -72,7 +72,7 @@ async function gitAddByScope(scope: Scope): Promise<void> {
 }
 
 async function getStagedFileChanges(): Promise<string[]> {
-  const stdout = await snorun("git status --porcelain").stdout;
+  const stdout = await snorun`git status --porcelain`.stdout;
   return stdout
     .split("\n")
     .map((line) => line.trim())
@@ -164,12 +164,11 @@ async function gitCommit(message: string): Promise<void> {
   console.log("Committing with message:\n", message);
   // await execa("git", ["commit", "-m", message]);
   const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, "\\n");
-  await snorun('git commit -m"' + safeMessage + '"');
+  await snorun`git commit -m"${safeMessage}"`;
 }
 
 async function gitPullAndPush(): Promise<void> {
-  await snorun("git pull --rebase");
-  await snorun("git push");
+  await snorun`git pull && git push`;
 }
 
 async function getOpenAIApiKey(): Promise<string> {
@@ -234,9 +233,9 @@ async function validApiKey(key?: string): Promise<string | null> {
 
 export async function getRecentCommits(count = 5): Promise<string> {
   try {
-    const stdout = await snorun(
-      `git log -n ${count} --pretty=format:%h\t%an\t%ad\t%s --date=short`,
-    ).stdout;
+    const stdout =
+      await snorun`git log -n ${String(count)} --pretty=format:"%h\t%an\t%ad\t%s" --date=short`
+        .stdout;
 
     if (!stdout || stdout.trim().length === 0)
       return "(no recent commits found)";

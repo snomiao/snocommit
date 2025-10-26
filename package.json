@@ -44,7 +44,7 @@
     "prerelease": "bun run build && bun run test",
     "release": "bun x commit-and-tag-version && git push --follow-tags && npm publish",
     "test": "bun test",
-    "prepare": "husky"
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "execa": "^9.6.0",
@@ -68,6 +68,7 @@
     "bun": "^1.1.18",
     "chalk": "^5.1.0",
     "husky": "^9.1.7",
+    "lefthook": "^2.0.1",
     "lint-staged": "^16.2.3",
     "p-map": "^5.5.0",
     "pkg-up": "^4.0.0",

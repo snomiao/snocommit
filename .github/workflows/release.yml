@@ -20,8 +20,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: bun install
-      - run: bun run test
+      - run: bun fmt
       - run: bun run build
+      - run: bun run test
       - name: Release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
