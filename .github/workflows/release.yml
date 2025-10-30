@@ -14,7 +14,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           registry-url: "https://npm.pkg.github.com/"
-          scope: "@foo"
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
