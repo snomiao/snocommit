@@ -47,7 +47,6 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "execa": "^9.6.0",
     "openai": "^6.7.0",
     "package-up": "^5.0.0",
     "phpdie": "^1.7.0",
