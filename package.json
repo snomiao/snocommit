@@ -37,8 +37,8 @@
     "*.ts"
   ],
   "scripts": {
-    "build": "bun build --outdir dist --target=node --packages=external src/cli.ts src/index.tsx",
-    "postbuild": "bun run postbuild.ts",
+    "build": "bun build src/cli.ts src/index.tsx --outdir dist --target=node --external=openai --external=zod --minify --sourcemap",
+    "postbuild": "bun postbuild.ts",
     "prepack": "npm run build",
     "fmt": "bunx @biomejs/biome check --fix",
     "prerelease": "bun run build && bun run test",
