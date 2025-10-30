@@ -48,11 +48,6 @@
   },
   "dependencies": {
     "openai": "^6.7.0",
-    "package-up": "^5.0.0",
-    "phpdie": "^1.7.0",
-    "snorun": "^1.6.2",
-    "tsa-composer": "^3.0.3",
-    "z-chat-completion": "^0.1.8",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -63,8 +58,13 @@
     "async-exec": "^1.1.0",
     "lefthook": "^2.0.1",
     "p-map": "^5.5.0",
+    "package-up": "^5.0.0",
+    "phpdie": "^1.7.0",
     "semantic-release": "^22.0.12",
-    "typescript": "^5.9.3"
+    "snorun": "^1.6.2",
+    "tsa-composer": "^3.0.3",
+    "typescript": "^5.9.3",
+    "z-chat-completion": "^0.1.8"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx}": "bunx @biomejs/biome check --fix"
