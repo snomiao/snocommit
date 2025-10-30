@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20]
+        node-version: [22]
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
