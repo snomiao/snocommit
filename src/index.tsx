@@ -1,6 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { execa } from "execa";
 import type { ChatModel } from "openai/resources";
 import { packageUp } from "package-up";
 import { DIE } from "phpdie";
