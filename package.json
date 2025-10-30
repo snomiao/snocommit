@@ -61,7 +61,7 @@
     "package-up": "^5.0.0",
     "phpdie": "^1.7.0",
     "semantic-release": "^22.0.12",
-    "snorun": "^1.6.2",
+    "snorun": "^1.7.1",
     "tsa-composer": "^3.0.3",
     "typescript": "^5.9.3",
     "z-chat-completion": "^0.1.8"

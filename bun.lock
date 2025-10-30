@@ -18,7 +18,7 @@
         "package-up": "^5.0.0",
         "phpdie": "^1.7.0",
         "semantic-release": "^22.0.12",
-        "snorun": "^1.6.2",
+        "snorun": "^1.7.1",
         "tsa-composer": "^3.0.3",
         "typescript": "^5.9.3",
         "z-chat-completion": "^0.1.8",
@@ -510,7 +510,7 @@
 
     "slash": ["slash@3.0.0", "", {}, "sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q=="],
 
-    "snorun": ["snorun@1.6.2", "", { "dependencies": { "tsa-composer": "^3.0.3" } }, "sha512-IB0iyu7gVRcHaxKWCZONLkgnJHArjqGvu0yvHErie7xiTMDFtCzJ688YDZxg1ZQC6ukTVFqa7c9vrh1vTdShDA=="],
+    "snorun": ["snorun@1.7.1", "", {}, "sha512-6Tu/oj9vkYpIEXhb8gXGmtrNi/U02aMxKlP/agf1uFGNE+3sxjrik2kC12Uxe/NwEDmSnrI1VIg2JPFnfx/S5g=="],
 
     "source-map": ["source-map@0.6.1", "", {}, "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="],
 
