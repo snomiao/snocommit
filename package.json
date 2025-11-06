@@ -47,7 +47,7 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "openai": "^6.7.0",
+    "openai": "^6.8.1",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -56,7 +56,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "18.8.3",
     "async-exec": "^1.1.0",
-    "lefthook": "^2.0.1",
+    "lefthook": "^2.0.2",
     "p-map": "^5.5.0",
     "package-up": "^5.0.0",
     "phpdie": "^1.7.0",
