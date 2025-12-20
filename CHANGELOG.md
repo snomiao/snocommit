@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.1](https://github.com/snomiao/snocommit/compare/v1.2.0...v0.1.1) (2025-12-20)
+
+
+### Features
+
+* **package.json:** add snorun dependency to enhance project functionality ([15a3dab](https://github.com/snomiao/snocommit/commit/15a3dab1869a6583aa5735b5d17d4846050c75d6))
+
+
+### Bug Fixes
+
+* **package.json:** move snorun to devDependencies and remove minify flag ([2763ea9](https://github.com/snomiao/snocommit/commit/2763ea9daf3ce3dd5c6e7b43fe09ea7f773e35e6))
+
 ## [0.1.0](https://github.com/snomiao/snocommit/compare/v1.1.0...v0.1.0) (2025-10-24)
 
 
