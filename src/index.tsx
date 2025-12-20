@@ -112,7 +112,7 @@ async function generateCommitMessage(
   const scopeString = scope && scope !== "." ? `(${scope})` : "";
 
   // todo: show spinner when generating
-  const model = "gpt-5-nano" satisfies ChatModel;
+  const model = "gpt-5.1-codex" satisfies ChatModel;
   console.log(`Generating commit message with ${model}...`);
 
   const generated = await zChatCompletion(
