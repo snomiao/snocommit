@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import * as path from "node:path";
 import type { ChatModel } from "openai/resources";
 import { packageUp } from "package-up";
 import { DIE } from "phpdie";
@@ -117,11 +117,16 @@ async function generateCommitMessage(
 
   const generated = await zChatCompletion(
     {
-      type: z.enum(commitTypes),
-      scope: z.string(),
-      title: z.string().min(1).max(72),
-      body: z.string().min(1),
-      is_BREAKING_CHANGE: z.boolean(),
+      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      type: z.enum(commitTypes) as any,
+      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      scope: z.string() as any,
+      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      title: z.string().min(1).max(72) as any,
+      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      body: z.string().min(1) as any,
+      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      is_BREAKING_CHANGE: z.boolean() as any,
     },
     { model },
   )`
@@ -150,10 +155,10 @@ Commit Message Format:
 [BREAKING CHANGE: <description of breaking change>s]
   `;
 
-  return `${generated.type}${generated.scope?.replace(
-    /^\(?(.+?)\)?$/,
-    "($1)",
-  )}${generated.is_BREAKING_CHANGE ? "!" : ""}: ${generated.title}\n\n${
+  const scopePart =
+    (generated.scope as string | undefined)?.replace(/^\(?(.+?)\)?$/, "($1)") ??
+    "";
+  return `${generated.type}${scopePart}${generated.is_BREAKING_CHANGE ? "!" : ""}: ${generated.title}\n\n${
     generated.body
   }`; // raw
   // return `${type}${scopeString}: ${desc}`; // raw
