@@ -4,24 +4,23 @@
     "": {
       "name": "snocommit",
       "dependencies": {
-        "openai": "latest",
-        "zod": "latest",
+        "openai": "^6.15.0",
+        "zod": "^4.2.1",
       },
       "devDependencies": {
-        "@semantic-release/changelog": "latest",
-        "@types/bun": "latest",
-        "@types/jest": "latest",
-        "@types/node": "latest",
-        "async-exec": "latest",
-        "lefthook": "latest",
-        "p-map": "latest",
-        "package-up": "latest",
-        "phpdie": "latest",
-        "semantic-release": "latest",
-        "snorun": "latest",
-        "tsa-composer": "latest",
-        "typescript": "latest",
-        "z-chat-completion": "latest",
+        "@semantic-release/changelog": "^6.0.3",
+        "@types/bun": "^1.3.5",
+        "@types/jest": "^30.0.0",
+        "@types/node": "25.0.3",
+        "lefthook": "^2.0.12",
+        "p-map": "^7.0.4",
+        "package-up": "^5.0.0",
+        "phpdie": "^1.7.0",
+        "semantic-release": "^25.0.2",
+        "snorun": "^1.7.1",
+        "tsa-composer": "^3.0.3",
+        "typescript": "^5.9.3",
+        "z-chat-completion": "^0.1.8",
       },
     },
   },
@@ -139,8 +138,6 @@
     "argv-formatter": ["argv-formatter@1.0.0", "", {}, "sha512-F2+Hkm9xFaRg+GkaNnbwXNDV5O6pnCFEmqyhvfC/Ic5LbgOWjJh3L+mN/s91rxVL3znE7DYVpW0GJFT+4YBgWw=="],
 
     "array-ify": ["array-ify@1.0.0", "", {}, "sha512-c5AMf34bKdvPhQ7tBGhqkgKNUzMr4WUs+WDtC2ZUGOUncbxKMTvqxYctiseW3+L4bA8ec+GcZ6/A/FW4m8ukng=="],
-
-    "async-exec": ["async-exec@1.1.0", "", {}, "sha512-6EoIzK7POGxExlZ7lHDlY17RbmyH5Djip6yRXFuPhW5F8dKhjF+xLK31E8t5y9z+WC8LZNvVVnY2XNloBcTDHQ=="],
 
     "before-after-hook": ["before-after-hook@4.0.0", "", {}, "sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ=="],
 
