@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ChatModel } from "openai/resources";
 import { packageUp } from "package-up";
 import { DIE } from "phpdie";
-import snorun from "snorun";
+import snorun, { $ } from "snorun";
 import zChatCompletion from "z-chat-completion";
 import z from "zod";
 import commitTypes from "./commitTypes";
@@ -71,7 +71,7 @@ async function gitAddByScope(scope: Scope): Promise<void> {
 }
 
 async function getStagedFileChanges(): Promise<string[]> {
-  const stdout = await snorun`git status --porcelain`.stdout;
+  const stdout = await $`git status --porcelain`.stdout;
   return stdout
     .split("\n")
     .map((line) => line.trim())
@@ -163,11 +163,11 @@ async function gitCommit(message: string): Promise<void> {
   console.log("Committing with message:\n", message);
   // await execa("git", ["commit", "-m", message]);
   const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, "\\n");
-  await snorun`git commit -m"${safeMessage}"`;
+  await $`git commit -m"${safeMessage}"`;
 }
 
 async function gitPullAndPush(): Promise<void> {
-  await snorun`git pull && git push`;
+  await $`git pull && git push`;
 }
 
 async function getOpenAIApiKey(): Promise<string> {
@@ -233,7 +233,7 @@ async function validApiKey(key?: string): Promise<string | null> {
 export async function getRecentCommits(count = 5): Promise<string> {
   try {
     const stdout =
-      await snorun`git log -n ${String(count)} --pretty=format:"%h\t%an\t%ad\t%s" --date=short`
+      await $`git log -n ${String(count)} --pretty=format:"%h\t%an\t%ad\t%s" --date=short`
         .stdout;
 
     if (!stdout || stdout.trim().length === 0)
