@@ -2,11 +2,11 @@ pre-push:
   jobs:
     - name: packages audit
       run: bun audit
-      
+
     - name: knip check
       run: bunx knip
 
 pre-commit:
   parallel: true
   jobs:
-      run: bunx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+    run: bun fmt

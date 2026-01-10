@@ -4,43 +4,43 @@
   "description": "A Simple way to commit changes in current folder.",
   "keywords": [
     "cli",
-    "git",
-    "commit"
+    "commit",
+    "git"
   ],
   "homepage": "https://github.com/snomiao/snocommit#readme",
   "bugs": {
     "url": "https://github.com/snomiao/snocommit/issues?q=is%3Aissue+is%3Aopen+snocommit"
   },
-  "repository": "https://github.com/snomiao/snocommit",
   "license": "MIT",
   "author": "snomiao <snomiao@gmail.com>",
-  "type": "module",
-  "exports": {
-    "require": "./dist/index.cjs",
-    "import": "./dist/index.js",
-    "types": "./src/index.ts"
-  },
-  "main": "dist/index.min.cjs",
-  "module": "index.ts",
-  "types": "./index.ts",
+  "repository": "https://github.com/snomiao/snocommit",
   "bin": {
-    "snocommit": "dist/cli-snocommit.js",
     "chore": "dist/cli-chore.js",
     "docs": "dist/cli-docs.js",
     "feat": "dist/cli-feat.js",
     "fix": "dist/cli-fix.js",
     "refactor": "dist/cli-refactor.js",
+    "snocommit": "dist/cli-snocommit.js",
     "styles": "dist/cli-styles.js"
   },
   "files": [
-    "dist",
-    "*.ts"
+    "*.ts",
+    "dist"
   ],
+  "type": "module",
+  "main": "dist/index.min.cjs",
+  "module": "index.ts",
+  "types": "./index.ts",
+  "exports": {
+    "types": "./src/index.ts",
+    "require": "./dist/index.cjs",
+    "import": "./dist/index.js"
+  },
   "scripts": {
     "build": "bun build src/cli.ts src/index.tsx --outdir dist --target=node --external=openai --external=zod --sourcemap",
     "postbuild": "bun postbuild.ts",
     "prepack": "npm run build",
-    "fmt": "bunx @biomejs/biome check --fix",
+    "fmt": "bunx oxlint --fix && bunx oxfmt",
     "prerelease": "bun run build && bun run test",
     "release": "bun x commit-and-tag-version && git push --follow-tags && npm publish",
     "test": "bun test",
@@ -65,12 +65,9 @@
     "typescript": "^5.9.3",
     "z-chat-completion": "^0.1.8"
   },
-  "lint-staged": {
-    "*.{js,ts,jsx,tsx}": "bunx @biomejs/biome check --fix"
-  },
   "overrides": {
-    "tar": ">=7.5.2",
     "glob": ">=11.1.0",
-    "js-yaml": ">=4.1.1"
+    "js-yaml": ">=4.1.1",
+    "tar": ">=7.5.2"
   }
 }

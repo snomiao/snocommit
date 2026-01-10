@@ -37,12 +37,7 @@ export default async function snocommit({
   }
 
   const gitDiffMap = await getTruncatedGitDiffOfFiles(stagedFileChanges);
-  const commitMessage = await generateCommitMessage(
-    type,
-    scope,
-    desc,
-    gitDiffMap,
-  );
+  const commitMessage = await generateCommitMessage(type, scope, desc, gitDiffMap);
 
   await gitCommit(commitMessage);
   await gitPullAndPush();
@@ -60,8 +55,7 @@ async function gitAddByScope(scope: Scope): Promise<void> {
   }
   if (scope === "@") {
     const pkgPath =
-      (await packageUp({ cwd: process.cwd() })) ||
-      DIE`No package.json found for "@" scope.`;
+      (await packageUp({ cwd: process.cwd() })) || DIE`No package.json found for "@" scope.`;
     const pkgDir = path.dirname(pkgPath);
     await snorun(`git add ${pkgDir}`);
     return;
@@ -78,17 +72,13 @@ async function getStagedFileChanges(): Promise<string[]> {
     .filter((line) => line.length > 0);
 }
 
-async function getTruncatedGitDiffOfFiles(
-  files: string[],
-): Promise<Record<string, string>> {
+async function getTruncatedGitDiffOfFiles(files: string[]): Promise<Record<string, string>> {
   const diffs: Record<string, string> = {};
   for (const file of files) {
     const stdout = await snorun(`git diff --cached -- ${file}`).stdout;
     if (stdout.length > 2000) {
       diffs[file] =
-        stdout.slice(0, 1000) +
-        "\n\n... (diff truncated) ...\n\n" +
-        stdout.slice(-1000);
+        `${stdout.slice(0, 1000)}\n\n... (diff truncated) ...\n\n${stdout.slice(-1000)}`;
     } else {
       diffs[file] = stdout;
     }
@@ -155,9 +145,7 @@ Commit Message Format:
 [BREAKING CHANGE: <description of breaking change>s]
   `;
 
-  const scopePart =
-    (generated.scope as string | undefined)?.replace(/^\(?(.+?)\)?$/, "($1)") ??
-    "";
+  const scopePart = (generated.scope as string | undefined)?.replace(/^\(?(.+?)\)?$/, "($1)") ?? "";
   return `${generated.type}${scopePart}${generated.is_BREAKING_CHANGE ? "!" : ""}: ${generated.title}\n\n${
     generated.body
   }`; // raw
@@ -167,7 +155,7 @@ Commit Message Format:
 async function gitCommit(message: string): Promise<void> {
   console.log("Committing with message:\n", message);
   // await execa("git", ["commit", "-m", message]);
-  const safeMessage = message.replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  const safeMessage = message.replace(/"/g, '\\"'); //.replace(/\n/g, "\\n");
   await $`git commit -m"${safeMessage}"`;
 }
 
@@ -188,7 +176,7 @@ async function getOpenAIApiKey(): Promise<string> {
           const rc = zSnocommitRC.parse(JSON.parse(rcFile));
           const key = await validApiKey(rc.OPENAI_API_KEY);
           if (key) return key;
-        } catch (_error) {
+        } catch {
           // ignore error if file doesn't exist or is invalid
         }
       }
@@ -200,9 +188,7 @@ async function getOpenAIApiKey(): Promise<string> {
     })()) ||
     (await (async () => {
       // 3. ask user to paste it
-      const key = await validApiKey(
-        await promptT`Please enter your OpenAI API Key (sk-...):`,
-      );
+      const key = await validApiKey(await promptT`Please enter your OpenAI API Key (sk-...):`);
 
       if (key) {
         // save to ~/.snocommitrc.json
@@ -229,7 +215,7 @@ async function validApiKey(key?: string): Promise<string | null> {
     if (key.startsWith("sk-") && key.length > 20) {
       return key.trim();
     }
-  } catch (_error) {
+  } catch {
     // ignore validation errors
   }
   return null;
@@ -238,11 +224,9 @@ async function validApiKey(key?: string): Promise<string | null> {
 export async function getRecentCommits(count = 5): Promise<string> {
   try {
     const stdout =
-      await $`git log -n ${String(count)} --pretty=format:"%h\t%an\t%ad\t%s" --date=short`
-        .stdout;
+      await $`git log -n ${String(count)} --pretty=format:"%h\t%an\t%ad\t%s" --date=short`.stdout;
 
-    if (!stdout || stdout.trim().length === 0)
-      return "(no recent commits found)";
+    if (!stdout || stdout.trim().length === 0) return "(no recent commits found)";
 
     return stdout
       .split("\n")
@@ -252,7 +236,7 @@ export async function getRecentCommits(count = 5): Promise<string> {
         return `- ${hash} | ${author} | ${date} | ${msg}`;
       })
       .join("\n");
-  } catch (_err) {
+  } catch {
     return "(unable to read recent commits)";
   }
 }

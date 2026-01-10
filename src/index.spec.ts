@@ -36,9 +36,7 @@ describe("getRecentCommits", () => {
 
   it("should handle when no commits are found", async () => {
     const result = await getRecentCommits(0);
-    expect(result).toMatch(
-      /\(no recent commits found\)|\(unable to read recent commits\)/,
-    );
+    expect(result).toMatch(/\(no recent commits found\)|\(unable to read recent commits\)/);
   });
 
   it("should accept custom count parameter", async () => {
