@@ -44,7 +44,8 @@
     "prerelease": "bun run build && bun run test",
     "release": "bun x commit-and-tag-version && git push --follow-tags && npm publish",
     "test": "bun test",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "fix": "oxlint --fix && oxfmt"
   },
   "dependencies": {
     "openai": "^6.15.0",
