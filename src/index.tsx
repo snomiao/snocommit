@@ -107,15 +107,11 @@ async function generateCommitMessage(
 
   const generated = await zChatCompletion(
     {
-      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
+      // `as any` is required for zod version compatibility with z-chat-completion
       type: z.enum(commitTypes) as any,
-      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
       scope: z.string() as any,
-      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
       title: z.string().min(1).max(72) as any,
-      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
       body: z.string().min(1) as any,
-      // biome-ignore lint/suspicious/noExplicitAny: Required for zod version compatibility with z-chat-completion
       is_BREAKING_CHANGE: z.boolean() as any,
     },
     { model },
