@@ -1,0 +1,63 @@
+# Builds the Rust `snocommit` binary for every platform, packs it together
+# with the JavaScript the package ships (dist/, built here by the project's
+# own `bun run build`), and checks on Linux, macOS and Windows (x64 and arm64)
+# that `bun i -g` / `npm i -g` gives working `chore`, `docs`, `feat`, `fix`,
+# `refactor` and `styles` commands.
+#
+# It does not publish. Releases still go through release.yml.
+#
+# The pipeline lives in https://github.com/snomiao/rustify.
+
+name: rust-npm-release
+
+on:
+  pull_request:
+    # The TypeScript is listed too: once a `parity:` test exists, a change on
+    # either side has to rerun it. postbuild.ts makes the command files.
+    paths:
+      - "rs/**"
+      - "src/**"
+      - "postbuild.ts"
+      - "package.json"
+      - ".github/workflows/rust-npm-release.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without a leading v (default: the version in rs/Cargo.toml)"
+        required: false
+        type: string
+
+jobs:
+  build:
+    uses: snomiao/rustify/.github/workflows/rust-npm-build.yml@releases/v1
+    with:
+      manifest: rs/Cargo.toml
+      bins: snocommit
+      version: ${{ inputs.version }}
+      # The commands' files are build products: dist/cli.js, copied to
+      # dist/cli-<type>.js by postbuild.ts. --ignore-scripts keeps `prepare`
+      # (lefthook install) out of the build.
+      js-build: bun install --frozen-lockfile --ignore-scripts && bun run build
+      # Every command is the same binary, and it hands each one to its own
+      # dist/cli-<command>.js, so these go through the JavaScript on every
+      # machine. Given arguments, a command runs `git add`, `git commit`,
+      # `git pull` and `git push`, so the checks give it none: then it stops
+      # with "Missing description (desc)" before any git command. That is an
+      # unhandled rejection (exit code 1) and the check needs exit code 0, so
+      # node is told to only warn about it. The extra lines show that the
+      # binary handed back, and the file name in the stack trace that it chose
+      # the command's own file.
+      # `snocommit` is not one of the binary's commands: package.json points it
+      # at dist/cli-snocommit.js, which the build never makes, so npm and bun
+      # install no such command, today as well.
+      smoke: feat
+      smoke-expect: Missing description (desc)
+      smoke-env: |
+        NODE_OPTIONS=--unhandled-rejections=warn
+      smoke-extra: |
+        [handback] chore => cli-chore.js !> commit type not found
+        [handback] docs => cli-docs.js !> commit type not found
+        [handback] feat => cli-feat.js !> commit type not found
+        [handback] fix => cli-fix.js !> commit type not found
+        [handback] refactor => cli-refactor.js !> commit type not found
+        [handback] styles => cli-styles.js !> commit type not found
