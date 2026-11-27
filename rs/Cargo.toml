@@ -1,0 +1,15 @@
+[package]
+name = "snocommit"
+version = "0.0.0"
+edition = "2021"
+description = "A Simple way to commit changes in current folder."
+license = "MIT"
+
+[[bin]]
+name = "snocommit"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
