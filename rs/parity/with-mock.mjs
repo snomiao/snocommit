@@ -36,7 +36,12 @@
 //                           the case's
 //   PARITY_RUNTIME=bun      put a directory first on PATH whose `node` is bun,
 //                           so that the JavaScript runs under bun, as where
-//                           node is a link to it
+//                           node is a link to it (a symbolic link; on
+//                           Windows a hard link, or a copy)
+//   PARITY_RUNTIME=bun-hardlink   the same with a hard link of bun's own file
+//                           named node (a copy where the temp directory is
+//                           on another volume), which no link tells apart
+//                           from node
 //
 // Every reply other than a completion carries `retry-after-ms: 1`, so that the
 // SDK's retries (two after a 5xx or a 429) do not wait. The server sends no
@@ -128,14 +133,27 @@ function onPath(name) {
 let shims = null;
 function runtimePath() {
   const pathKey = Object.keys(process.env).find((name) => name.toUpperCase() === "PATH") ?? "PATH";
-  if (runtime !== "bun") return {};
+  if (runtime === undefined) return {};
+  if (runtime !== "bun" && runtime !== "bun-hardlink") {
+    console.error(`with-mock: PARITY_RUNTIME=${runtime}: only bun or bun-hardlink`);
+    process.exit(2);
+  }
   const bun = onPath("bun");
   if (!bun) {
-    console.error("with-mock: PARITY_RUNTIME=bun, but there is no bun on PATH");
+    console.error(`with-mock: PARITY_RUNTIME=${runtime}, but there is no bun on PATH`);
     process.exit(2);
   }
   shims = fs.mkdtempSync(path.join(os.tmpdir(), "parity-runtime-"));
-  if (isWindows) {
+  if (runtime === "bun-hardlink" && !isWindows) {
+    const real = fs.realpathSync(bun);
+    const node = path.join(shims, "node");
+    try {
+      fs.linkSync(real, node);
+    } catch {
+      fs.copyFileSync(real, node);
+      fs.chmodSync(node, 0o755);
+    }
+  } else if (isWindows) {
     // A hard link where the temp directory is on bun's volume; else a copy.
     try {
       fs.linkSync(bun, path.join(shims, "node.exe"));
