@@ -328,7 +328,9 @@ add("git: a commit-msg hook sees the message and the key", {
   setup: [hook("commit-msg", 'cat "$1"', 'echo "key=${OPENAI_API_KEY-unset}"'), ...CHANGES],
   reply: ok(),
 });
-add("git: a post-index-change hook", { setup: [hook("post-index-change", "echo index changed"), ...CHANGES], reply: ok(), handback: "git would run the hook for the binary's copy of the index too" });
+// A silent hook: how often git writes the index (and so runs it) depends on
+// timing, the same command twice.
+add("git: a post-index-change hook", { setup: [hook("post-index-change", "exit 0"), ...CHANGES], reply: ok(), handback: "git would run the hook for the binary's copy of the index too" });
 add("git: another git holds the index lock", { setup: [...CHANGES, "touch .git/index.lock"], reply: ok(), handback: "the index is locked" });
 add("git: a split index", { setup: ["git update-index --split-index", ...CHANGES], reply: ok(), handback: "a split index, whose shared part a copy would share" });
 add("git: a linked worktree", {
@@ -344,7 +346,9 @@ add("runtime: NODE_OPTIONS", { env: { NODE_OPTIONS: "--no-warnings" }, reply: ok
 add("runtime: a BUN_ variable", { env: { BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD: "1" }, reply: ok(), handback: BUN });
 add("runtime: BUN_INSTALL changes nothing", { env: { BUN_INSTALL: "<HOME>/.bun" }, reply: ok() });
 add("runtime: FORCE_COLOR", { env: { FORCE_COLOR: "1" }, reply: ok(), handback: BUN });
-add("runtime: HTTP_PROXY", { env: { HTTP_PROXY: "http://127.0.0.1:1" }, reply: ok(), handback: BUN });
+// NO_PROXY too: bun's fetch, where it runs the JavaScript, would take the
+// stand-in's address to the proxy and fail with the port in its message.
+add("runtime: HTTP_PROXY", { env: { HTTP_PROXY: "http://127.0.0.1:1", NO_PROXY: "127.0.0.1" }, reply: ok(), handback: BUN });
 add("runtime: OPENAI_ORG_ID", { env: { OPENAI_ORG_ID: "org-parity" }, reply: ok(), handback: BUN });
 add("runtime: under bun", { env: { PARITY_RUNTIME: "bun" }, reply: ok() });
 add("runtime: under bun, nothing to commit", { env: { PARITY_RUNTIME: "bun" }, setup: [], reply: ok() });

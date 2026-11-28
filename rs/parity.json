@@ -2983,7 +2983,7 @@
     "git init -q --bare -b main <ROOT>/remote.git",
     "git remote add origin <ROOT>/remote.git",
     "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
-    "printf '%s\\n' '#!/bin/sh' 'echo index changed' > .git/hooks/post-index-change && chmod +x .git/hooks/post-index-change",
+    "printf '%s\\n' '#!/bin/sh' 'exit 0' > .git/hooks/post-index-change && chmod +x .git/hooks/post-index-change",
     "printf 'two\\n' >> a.txt",
     "printf 'bee\\n' > b.txt"
    ],
@@ -3196,6 +3196,7 @@
    ],
    "env": {
     "HTTP_PROXY": "http://127.0.0.1:1",
+    "NO_PROXY": "127.0.0.1",
     "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
    },
    "setup": [

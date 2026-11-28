@@ -134,7 +134,9 @@ for name in $others; do
 done
 wait
 
-echo "proof on $platform with node $(node --version), bun $(bun --version 2> /dev/null || echo none), $lanes lane(s):$runs"
+# (`node --version` says nothing where node is a link to bun.)
+node_is=$(node -e "process.stdout.write(process.versions.bun ? 'bun ' + process.versions.bun + ' as node' : process.version)")
+echo "proof on $platform with node $node_is, bun $(bun --version 2> /dev/null || echo none), $lanes lane(s):$runs"
 failed=0
 same=0 native=0 back=0
 for name in $runs; do
