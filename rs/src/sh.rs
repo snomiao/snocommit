@@ -27,6 +27,9 @@ pub struct Output {
 pub fn run(command: &str, extra: &[(&str, Option<&OsString>)], forward: bool) -> Output {
     let mut child = Command::new("/bin/sh");
     child.arg("-c").arg(command).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    // The JavaScript is started without it (js_fallback::run), and so are
+    // the commands it runs.
+    child.env_remove(crate::js_fallback::TRACE_ENV);
     for (name, value) in extra {
         match value {
             Some(value) => child.env(name, value),
