@@ -82,7 +82,8 @@ const ok = (over = {}) => answer(proposal(over));
  * for no repository; `o.setup` lines after the repository's; `o.after`
  * instead of AFTER; `o.env`; `o.handback` (text, or per system); `o.asked`
  * when the binary hands back after its request; `o.normalize`, rules of the
- * case's own.
+ * case's own; `o.whereNodeIsBun`, why it is handed back wherever the `node`
+ * that runs the proof is bun (see "systems").
  */
 function add(name, o = {}) {
   const cmd = o.cmd ?? "feat";
@@ -101,6 +102,7 @@ function add(name, o = {}) {
     ...(o.timeout ? { timeout: o.timeout } : {}),
     ...(o.normalize ? { normalize: o.normalize } : {}),
     ...(o.handback ? { handback: o.handback } : {}),
+    ...(o.whereNodeIsBun ? { handbackWhereNodeIsBun: o.whereNodeIsBun } : {}),
     ...(o.skip ? { skip: o.skip } : {}),
   };
   if (cases.some((c) => c.name === testCase.name)) throw new Error(`two cases named ${JSON.stringify(testCase.name)}`);
@@ -492,7 +494,9 @@ verify("scope: ~ is the home directory", { args: ["~", "tilde"], reply: ok() });
 verify("scope: a path in another script", { args: ["fé日", "unicode dir"], setup: ["mkdir fé日", "printf 'u\\n' > fé日/u.txt", ...CHANGES], reply: ok(), handback: "a status line git quotes (other scripts, core.quotePath on)" });
 verify("scope: a path in another script, core.quotePath off", { args: ["fé日", "unicode dir"], setup: ["git config core.quotePath false", "mkdir fé日", "printf 'u\\n' > fé日/u.txt", ...CHANGES], reply: ok() });
 verify("scope: a tab between two paths", { args: ["a.txt\tb.txt", "tab"], reply: ok(), handback: "the shell would run, substitute or redirect part of this command line" });
-verify("scope: @ where ./package.json is a directory", { args: ["@", "dir pkg"], setup: ["mkdir package.json", "printf '{\"name\":\"up\"}' > ../package.json", ...CHANGES], reply: ok(), handback: { darwin: "where node is bun, a package.json that is not a plain file goes back" } });
+// Marked darwin by the verifier, whose Mac runs bun as node; it goes back
+// wherever node is bun (see "systems"), not on macOS as such.
+verify("scope: @ where ./package.json is a directory", { args: ["@", "dir pkg"], setup: ["mkdir package.json", "printf '{\"name\":\"up\"}' > ../package.json", ...CHANGES], reply: ok(), whereNodeIsBun: "where node is bun, a package.json that is not a plain file goes back" });
 verify("args: help as the description", { args: [".", "help"], reply: ok() });
 verify("args: help as the only argument", { args: ["help"], after: [LOG], handback: THROWS });
 verify("args: two empty words make a description of one space", { args: [".", "", ""], reply: ok() });
@@ -621,6 +625,12 @@ repair("terminal: a merge with a conflict, only stdout a terminal", {
   setup: ["git checkout -q -b side", "printf 'side\\n' > a.txt && git commit -q -am 'fix: side'", "git checkout -q main", "printf 'main\\n' > a.txt && git commit -q -am 'fix: main'", "git merge -q side >/dev/null 2>&1 || true"],
   reply: ok(),
 });
+repair("runtime: under bun, a repository with a hook", {
+  env: { PARITY_RUNTIME: "bun" },
+  setup: [hook("pre-commit", "echo hook says >&2"), ...CHANGES],
+  reply: ok(),
+  handback: "where bun runs the JavaScript, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)",
+});
 // Settings and variables with which git runs a program of the user's while
 // the binary works on its copy: each goes back, wherever git reads it.
 repair("git: a textconv diff driver", { setup: ["git config diff.upper.textconv 'tr a-z A-Z <'", "printf 'b.txt diff=upper\\n' > .gitattributes", ...CHANGES], reply: ok(), handback: PROGRAMS });
@@ -661,6 +671,20 @@ repair("git: a submodule", {
 // so there every case is meant to reach the JavaScript.
 const WINDOWS = "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)";
 for (const c of cases) if (typeof c.handback !== "string") c.handback = { ...c.handback, win32: WINDOWS };
+//
+// Where bun runs the JavaScript (the `node` on PATH is bun, as on the Mac
+// these cases were run on; GitHub's macOS runner has node itself), the
+// binary also hands back every repository with a hook, since bun's exec
+// leaves the pipes open when it kills a command past 1 MiB and a hook's
+// commit may then be made after all (rs/src/commit.rs prepare). Which
+// system that is cannot be said by its name, so such cases carry
+// "handbackWhereNodeIsBun", which the parity runner does not read:
+// rs/parity/lanes.mjs, run by rs/parity/proof.sh under that same node, adds
+// it to "handback" for the system it runs on when that node is bun. (A run
+// of the runner straight on rs/parity.json under bun goes without it.)
+const BUN_HOOKS = "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)";
+const writesHook = (c) => (c.setup ?? []).some((line) => /> \.git\/hooks\/[\w-]+ && chmod \+x/.test(line));
+for (const c of cases) if (typeof c.handback !== "string" && !c.handbackWhereNodeIsBun && writesHook(c)) c.handbackWhereNodeIsBun = BUN_HOOKS;
 
 // ═══════════════════════════ write ═══════════════════════════
 

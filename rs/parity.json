@@ -3074,7 +3074,8 @@
    ],
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] git: a commit-msg hook sees the message and the key",
@@ -3103,7 +3104,8 @@
    ],
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] git: a post-index-change hook",
@@ -3967,7 +3969,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] terminal: no key: the question",
@@ -4038,7 +4041,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: bytes: a post-commit hook prints bytes that are not UTF-8 on stdout (files)",
@@ -4071,7 +4075,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: bytes: git add names an ignored file whose name is not UTF-8 (files)",
@@ -4172,7 +4177,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: limits: a pre-commit hook that prints 3 MB (node's exec stops at 1 MiB)",
@@ -4212,7 +4218,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: limits: a pre-push hook that prints 3 MB (node's exec stops at 1 MiB)",
@@ -4252,7 +4259,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: limits: a post-commit hook that prints 3 MB on stdout",
@@ -4292,7 +4300,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] verify: terminal: TERM=xterm-kitty",
@@ -5621,12 +5630,12 @@
     "git -C <ROOT>/remote.git log --format='%h %s' main",
     "cat <ROOT>/openai.log"
    ],
-   "handback": {
-    "darwin": "where node is bun, a package.json that is not a plain file goes back",
-    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   },
+   "handbackWhereNodeIsBun": "where node is bun, a package.json that is not a plain file goes back",
    "skip": {
     "win32": "verifier's cases target the native path on Linux and macOS"
+   },
+   "handback": {
+    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
    }
   },
   {
@@ -7601,7 +7610,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] limits: a pre-commit hook that prints 600,000 bytes that are not UTF-8 (1.8 MB once decoded)",
@@ -7641,7 +7651,8 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
-   }
+   },
+   "handbackWhereNodeIsBun": "where node is bun, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)"
   },
   {
    "name": "[feat] terminal: a merge with a conflict, only stdout a terminal",
@@ -7676,6 +7687,37 @@
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
+   }
+  },
+  {
+   "name": "[feat] runtime: under bun, a repository with a hook",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "PARITY_RUNTIME": "bun",
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf '%s\\n' '#!/bin/sh' 'echo hook says >&2' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": "where bun runs the JavaScript, a repository with a hook goes back (bun's exec leaves the pipes open when it kills a command)",
+   "skip": {
+    "win32": "pins a repair of the native path, which Windows does not take (everything goes back there)"
    }
   },
   {
