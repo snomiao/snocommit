@@ -26,6 +26,7 @@ use std::process::{Command, Stdio};
 
 /// exec's `maxBuffer`: how much of the decoded text of one stream a command
 /// may write before it is killed (more than this, not this much).
+#[cfg_attr(not(unix), allow(dead_code))]
 pub const MAX_BUFFER: usize = 1024 * 1024;
 
 /// What a command wrote (the bytes as they came), and how it ended.
@@ -70,6 +71,13 @@ pub fn run(command: &str, extra: &[(&str, Option<&OsString>)], forward: bool) ->
 /// file), passing them on when `forward`, until both have ended or one has
 /// passed `MAX_BUFFER`; in that case both pipes are closed and the shell is
 /// sent SIGTERM. Returns the bytes each pipe gave.
+///
+/// The order is libuv's, which node reads the pipes with: the pipes are
+/// taken in the order the kernel says they became readable (epoll on Linux,
+/// kqueue on macOS, which both keep that order), and a pipe is read again at
+/// once as long as a read fills the whole 64 KiB buffer, 32 reads at most.
+/// So when git writes an error to stderr and then a line to stdout, the two
+/// reach a terminal they share in that order, also when both were waiting.
 #[cfg(unix)]
 fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
     use std::io::Read;
@@ -78,57 +86,65 @@ fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
         child.stdout.take().map(|pipe| std::fs::File::from(OwnedFd::from(pipe))),
         child.stderr.take().map(|pipe| std::fs::File::from(OwnedFd::from(pipe))),
     ];
+    for pipe in pipes.iter().flatten() {
+        // SAFETY: fcntl on a descriptor this function owns.
+        unsafe {
+            let flags = libc::fcntl(pipe.as_raw_fd(), libc::F_GETFL);
+            if flags >= 0 {
+                libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK);
+            }
+        }
+    }
+    let watched: Vec<(i32, usize)> = (0..2).filter_map(|i| pipes[i].as_ref().map(|p| (p.as_raw_fd(), i))).collect();
+    let mut ready = Ready::new(&watched);
     let mut kept = [Vec::new(), Vec::new()];
     let mut text = [Decoder::default(), Decoder::default()];
     let mut counted = [0usize; 2];
     // As much as libuv reads at a time.
     let mut buf = vec![0u8; 65536];
     let mut over = false;
-    'reading: loop {
-        let open: Vec<usize> = (0..2).filter(|&i| pipes[i].is_some()).collect();
-        if open.is_empty() {
-            break;
-        }
-        let mut fds: Vec<libc::pollfd> =
-            open.iter().map(|&i| libc::pollfd { fd: pipes[i].as_ref().map_or(-1, |f| f.as_raw_fd()), events: libc::POLLIN, revents: 0 }).collect();
-        // SAFETY: `fds` is a live array of `fds.len()` pollfd structures.
-        let ready = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, -1) };
-        if ready < 0 {
-            if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
-                continue;
-            }
+    'reading: while pipes.iter().any(Option::is_some) {
+        let Some(order) = ready.wait(&pipes) else {
             // Cannot wait on them: close them, as exec would on an error.
             break;
-        }
-        for (fd, &i) in fds.iter().zip(&open) {
-            if fd.revents == 0 {
-                continue;
-            }
-            let Some(pipe) = pipes[i].as_mut() else { continue };
-            let (piece, ended) = match pipe.read(&mut buf) {
-                Ok(0) => (text[i].end(), true),
-                Ok(n) => {
-                    kept[i].extend_from_slice(&buf[..n]);
-                    (text[i].write(&buf[..n]), false)
+        };
+        for i in order {
+            let mut reads = 0;
+            while reads < 32 {
+                let Some(pipe) = pipes[i].as_mut() else { break };
+                let (piece, ended, full) = match pipe.read(&mut buf) {
+                    Ok(0) => (text[i].end(), true, false),
+                    Ok(n) => {
+                        kept[i].extend_from_slice(&buf[..n]);
+                        (text[i].write(&buf[..n]), false, n == buf.len())
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(_) => (text[i].end(), true, false),
+                };
+                reads += 1;
+                counted[i] += piece.len();
+                if forward && !piece.is_empty() {
+                    pass_on(i, &piece);
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => (text[i].end(), true),
-            };
-            counted[i] += piece.len();
-            if forward && !piece.is_empty() {
-                pass_on(i, &piece);
-            }
-            if ended {
-                pipes[i] = None;
-            }
-            if counted[i] > MAX_BUFFER {
-                over = true;
-                break 'reading;
+                if ended {
+                    if let Some(pipe) = pipes[i].take() {
+                        ready.forget(pipe.as_raw_fd());
+                    }
+                }
+                if counted[i] > MAX_BUFFER {
+                    over = true;
+                    break 'reading;
+                }
+                if !full {
+                    break;
+                }
             }
         }
     }
     // Closes both pipes (exec destroys both streams).
     drop(pipes);
+    drop(ready);
     if over {
         // exec's kill(): SIGTERM to the shell it started, nothing else.
         if let Ok(pid) = libc::pid_t::try_from(child.id()) {
@@ -138,6 +154,144 @@ fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
         }
     }
     kept
+}
+
+/// Which of the pipes can be read, in the order they became readable: an
+/// epoll set on Linux.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+struct Ready {
+    epoll: Option<std::os::fd::OwnedFd>,
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+impl Ready {
+    fn new(watched: &[(i32, usize)]) -> Ready {
+        use std::os::fd::FromRawFd;
+        // SAFETY: plain system calls; the new descriptor is owned at once.
+        let epoll = unsafe {
+            let fd = libc::epoll_create1(libc::EPOLL_CLOEXEC);
+            if fd < 0 {
+                return Ready { epoll: None };
+            }
+            std::os::fd::OwnedFd::from_raw_fd(fd)
+        };
+        for &(fd, i) in watched {
+            let mut event = libc::epoll_event { events: libc::EPOLLIN as u32, u64: i as u64 };
+            // SAFETY: `event` lives across the call.
+            if unsafe { libc::epoll_ctl(std::os::fd::AsRawFd::as_raw_fd(&epoll), libc::EPOLL_CTL_ADD, fd, &mut event) } < 0 {
+                return Ready { epoll: None };
+            }
+        }
+        Ready { epoll: Some(epoll) }
+    }
+
+    fn wait(&mut self, _pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+        let epoll = std::os::fd::AsRawFd::as_raw_fd(self.epoll.as_ref()?);
+        let mut events = [libc::epoll_event { events: 0, u64: 0 }; 2];
+        loop {
+            // SAFETY: `events` has room for the 2 events asked for.
+            let n = unsafe { libc::epoll_wait(epoll, events.as_mut_ptr(), 2, -1) };
+            if n >= 0 {
+                return Some(events[..n as usize].iter().map(|e| e.u64 as usize).collect());
+            }
+            if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                return None;
+            }
+        }
+    }
+
+    fn forget(&mut self, fd: i32) {
+        if let Some(epoll) = &self.epoll {
+            let mut event = libc::epoll_event { events: 0, u64: 0 };
+            // SAFETY: as above; the descriptor is still open here.
+            unsafe { libc::epoll_ctl(std::os::fd::AsRawFd::as_raw_fd(epoll), libc::EPOLL_CTL_DEL, fd, &mut event) };
+        }
+    }
+}
+
+/// The same with a kqueue, on macOS.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+struct Ready {
+    kqueue: Option<std::os::fd::OwnedFd>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl Ready {
+    fn change(kqueue: i32, fd: i32, i: usize, flags: u16) -> bool {
+        let change = libc::kevent { ident: fd as libc::uintptr_t, filter: libc::EVFILT_READ, flags, fflags: 0, data: 0, udata: i as *mut libc::c_void };
+        // SAFETY: one change, no events asked for.
+        unsafe { libc::kevent(kqueue, &change, 1, std::ptr::null_mut(), 0, std::ptr::null()) >= 0 }
+    }
+
+    fn new(watched: &[(i32, usize)]) -> Ready {
+        use std::os::fd::FromRawFd;
+        // SAFETY: a plain system call; the new descriptor is owned at once.
+        let kqueue = unsafe {
+            let fd = libc::kqueue();
+            if fd < 0 {
+                return Ready { kqueue: None };
+            }
+            std::os::fd::OwnedFd::from_raw_fd(fd)
+        };
+        for &(fd, i) in watched {
+            if !Ready::change(std::os::fd::AsRawFd::as_raw_fd(&kqueue), fd, i, libc::EV_ADD) {
+                return Ready { kqueue: None };
+            }
+        }
+        Ready { kqueue: Some(kqueue) }
+    }
+
+    fn wait(&mut self, _pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+        let kqueue = std::os::fd::AsRawFd::as_raw_fd(self.kqueue.as_ref()?);
+        let empty = libc::kevent { ident: 0, filter: 0, flags: 0, fflags: 0, data: 0, udata: std::ptr::null_mut() };
+        let mut events = [empty; 2];
+        loop {
+            // SAFETY: `events` has room for the 2 events asked for.
+            let n = unsafe { libc::kevent(kqueue, std::ptr::null(), 0, events.as_mut_ptr(), 2, std::ptr::null()) };
+            if n >= 0 {
+                return Some(events[..n as usize].iter().map(|e| e.udata as usize).collect());
+            }
+            if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                return None;
+            }
+        }
+    }
+
+    fn forget(&mut self, fd: i32) {
+        if let Some(kqueue) = &self.kqueue {
+            Ready::change(std::os::fd::AsRawFd::as_raw_fd(kqueue), fd, 0, libc::EV_DELETE);
+        }
+    }
+}
+
+/// Elsewhere poll(2), which says which pipes are readable but not in which
+/// order they became so (the binary is built for Linux and macOS).
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "ios"))))]
+struct Ready;
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "ios"))))]
+impl Ready {
+    fn new(_watched: &[(i32, usize)]) -> Ready {
+        Ready
+    }
+
+    fn wait(&mut self, pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+        use std::os::fd::AsRawFd;
+        let open: Vec<usize> = (0..2).filter(|&i| pipes[i].is_some()).collect();
+        let mut fds: Vec<libc::pollfd> = open.iter().map(|&i| libc::pollfd { fd: pipes[i].as_ref().map_or(-1, |f| f.as_raw_fd()), events: libc::POLLIN, revents: 0 }).collect();
+        loop {
+            // SAFETY: `fds` is a live array of `fds.len()` pollfd structures.
+            let n = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, -1) };
+            if n >= 0 {
+                return Some(fds.iter().zip(&open).filter(|(fd, _)| fd.revents != 0).map(|(_, &i)| i).collect());
+            }
+            if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                return None;
+            }
+        }
+    }
+
+    fn forget(&mut self, _fd: i32) {}
 }
 
 /// Elsewhere (Windows) the binary hands every invocation back before it runs
@@ -177,10 +331,12 @@ fn pass_on(stream: usize, piece: &[u8]) {
 /// start of a character cut off at the end of a piece waits for the next.
 /// The pieces put together are always `from_utf8_lossy` of all the bytes.
 #[derive(Default)]
+#[cfg_attr(not(unix), allow(dead_code))]
 pub struct Decoder {
     pending: Vec<u8>,
 }
 
+#[cfg_attr(not(unix), allow(dead_code))]
 impl Decoder {
     /// The text of `bytes`, after what an earlier piece left unfinished.
     pub fn write(&mut self, bytes: &[u8]) -> Vec<u8> {

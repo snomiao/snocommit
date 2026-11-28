@@ -224,9 +224,14 @@ impl Copy {
         // The copy lists every path of the repository with its object ids,
         // and TMPDIR is usually /tmp, which every user of the machine reads:
         // the directory is the user's alone (0700, whatever the umask).
-        let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        let builder = {
+            let mut builder = std::fs::DirBuilder::new();
+            std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+            builder
+        };
+        #[cfg(not(unix))]
+        let builder = std::fs::DirBuilder::new();
         builder.create(&dir).map_err(|_| HandBack)?;
         let copy = Copy { index: dir.join("index").into_os_string(), dir };
         match std::fs::metadata(index) {
