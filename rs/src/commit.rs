@@ -366,7 +366,7 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
         return Err(HandBack);
     }
     let home = ["HOME", "USERPROFILE"].iter().find_map(|name| std::env::var_os(name).filter(|v| !v.is_empty())).map(PathBuf::from);
-    if !gate::runtime_is_node() && !gate::nothing_for_bun(&cwd, home.as_deref()) {
+    if !gate::nothing_for_bun(&cwd, home.as_deref()) && !gate::runtime_is_node(&cwd) {
         return Err(HandBack);
     }
     let add = match scope.as_str() {

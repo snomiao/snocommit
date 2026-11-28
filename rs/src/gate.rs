@@ -52,9 +52,11 @@ pub fn environment_is_plain() -> bool {
 
 /// Whether the `node` that the command's `#!` line asks for is node itself:
 /// the first file called `node` on PATH that can be run, which is not a
-/// script, and whose real name (after links) is `node`. Anything else (no
-/// node, a link to bun, a shim script) may run the JavaScript under bun.
-pub fn runtime_is_node() -> bool {
+/// script, whose real name (after symbolic links) is `node`, and which, run,
+/// says it is not bun. Anything else (no node, a link to bun, a shim script,
+/// a hard link or a copy of bun under the name node) may run the JavaScript
+/// under bun.
+pub fn runtime_is_node(cwd: &Path) -> bool {
     let Some(path) = std::env::var_os("PATH") else {
         return false;
     };
@@ -71,9 +73,56 @@ pub fn runtime_is_node() -> bool {
         }
         let mut head = [0u8; 2];
         let read = std::fs::File::open(&real).and_then(|mut f| std::io::Read::read(&mut f, &mut head));
-        return matches!(read, Ok(2)) && &head != b"#!";
+        return matches!(read, Ok(2)) && &head != b"#!" && says_it_is_node(&candidate, cwd);
     }
     false
+}
+
+/// What the JavaScript tells apart, `typeof Bun` and `process.versions.bun`,
+/// asked of `node` itself where the command would run (bun under the name
+/// node answers `object,string`, and does not care what its file is called).
+/// Nothing is printed; a node that does not answer within ten seconds, or
+/// answers anything else, counts as not node.
+fn says_it_is_node(node: &Path, cwd: &Path) -> bool {
+    use std::io::Read;
+    let child = std::process::Command::new(node)
+        .args(["-e", "process.stdout.write(typeof Bun + ',' + typeof process.versions.bun)"])
+        .current_dir(cwd)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .env_remove(crate::js_fallback::TRACE_ENV)
+        .spawn();
+    let Ok(mut child) = child else {
+        return false;
+    };
+    // Read on a thread of its own, so that neither a node that hangs nor one
+    // that leaves something behind holding its stdout can hold the binary.
+    let (tell, told) = std::sync::mpsc::channel();
+    if let Some(mut out) = child.stdout.take() {
+        std::thread::spawn(move || {
+            let mut answer = Vec::new();
+            let read = out.by_ref().take(4096).read_to_end(&mut answer);
+            let _ = tell.send(read.ok().map(|_| answer));
+        });
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let answer = told.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()));
+    let mut status = None;
+    while answer.is_ok() && std::time::Instant::now() < deadline {
+        match child.try_wait() {
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(2)),
+            done => {
+                status = done.ok().flatten();
+                break;
+            }
+        }
+    }
+    if status.is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    status.is_some_and(|s| s.success()) && matches!(answer, Ok(Some(text)) if text == b"undefined,undefined")
 }
 
 #[cfg(unix)]
@@ -166,6 +215,34 @@ mod tests {
         for name in ["BUN_INSTALL", "BUN_INSTALL_CACHE_DIR", "OPENAI_API_KEY", "OPENAI_BASE_URL", "NO_COLOR", "TERM", "HOME", "GIT_DIR", "GIT_INDEX_FILE"] {
             assert!(!variable_hands_back(name), "{name}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bun_under_the_name_node_is_not_node() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("snocommit-test-node-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let script = |name: &str, body: &str| {
+            let path = dir.join(name);
+            std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            path
+        };
+        assert!(says_it_is_node(&script("plain", "printf undefined,undefined"), &dir));
+        assert!(!says_it_is_node(&script("bun", "printf object,string"), &dir));
+        assert!(!says_it_is_node(&script("fails", "printf undefined,undefined; exit 1"), &dir));
+        assert!(!says_it_is_node(&dir.join("none"), &dir));
+        // bun itself, hard-linked (or copied) under the name node.
+        let bun = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).map(|d| d.join("bun")).find(|p| p.is_file());
+        if let Some(bun) = bun.and_then(|b| std::fs::canonicalize(b).ok()) {
+            let node = dir.join("node");
+            if std::fs::hard_link(&bun, &node).is_err() {
+                std::fs::copy(&bun, &node).unwrap();
+            }
+            assert!(!says_it_is_node(&node, &dir));
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
