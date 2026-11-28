@@ -5898,6 +5898,7 @@
     "git -C <ROOT>/remote.git log --format='%h %s' main",
     "cat <ROOT>/openai.log"
    ],
+   "tty": false,
    "skip": {
     "win32": "verifier's cases target the native path on Linux and macOS"
    },
@@ -7617,7 +7618,7 @@
     "git init -q --bare -b main <ROOT>/remote.git",
     "git remote add origin <ROOT>/remote.git",
     "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
-    "printf '%s\\n' '#!/bin/sh' 'head -c 600000 /dev/zero | tr \"\\000\" \"\\377\" >&2' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit",
+    "printf '%s\\n' '#!/bin/sh' 'head -c 600000 /dev/zero | LC_ALL=C tr \"\\000\" \"\\377\" >&2' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit",
     "printf 'two\\n' >> a.txt",
     "printf 'bee\\n' > b.txt"
    ],
@@ -7637,6 +7638,41 @@
    ],
    "skip": {
     "win32": "pins a repair of the native path, which Windows does not take (everything goes back there)"
+   },
+   "handback": {
+    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
+   }
+  },
+  {
+   "name": "[feat] terminal: a merge with a conflict, only stdout a terminal",
+   "args": [
+    "feat",
+    "-",
+    "resolve"
+   ],
+   "env": {
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "git checkout -q -b side",
+    "printf 'side\\n' > a.txt && git commit -q -am 'fix: side'",
+    "git checkout -q main",
+    "printf 'main\\n' > a.txt && git commit -q -am 'fix: main'",
+    "git merge -q side >/dev/null 2>&1 || true"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "tty": "stdout",
+   "skip": {
+    "win32": "a pseudo-terminal, which Windows does not have"
    },
    "handback": {
     "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"

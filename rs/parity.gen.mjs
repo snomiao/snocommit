@@ -403,7 +403,8 @@ tty("no key: the question", { env: { OPENAI_API_KEY: null }, tty: true, stdin: [
 // and a post-index-change hook set in git's configuration (git runs them for
 // the binary's copy of the index too), and bun hard-linked under the name
 // node. The binary now does what exec does with the output (rs/src/sh.rs),
-// and hands back what is marked here.
+// and hands back what is marked here. Changed since: four marked handed
+// back, and one kept on pipes in the run on a terminal (see there).
 
 const NATIVE_PATH = "verifier's cases target the native path on Linux and macOS";
 /** A case of the verifier's: `o` as for add(), and skipped on Windows. */
@@ -502,7 +503,13 @@ verify("args: a description with U+2028, DEL and an escape", { args: [".", "a 
 
 // ── E. git states ──────────────────────────────────────────────────────────
 verify("git: a detached HEAD", { setup: ["git checkout -q --detach", ...CHANGES], reply: ok() });
+// Pipes, also in the run with --tty stdout,stderr: git commit writes its
+// error to stderr and the unmerged path to stdout at nearly the same moment,
+// and on one terminal the TypeScript itself puts them in either order (1 of
+// 8 runs against itself on Linux). "terminal: a merge with a conflict, only
+// stdout a terminal" below covers the terminal.
 verify("git: a merge with a conflict, scope -", {
+  tty: false,
   args: ["-", "resolve"],
   setup: ["git checkout -q -b side", "printf 'side\\n' > a.txt && git commit -q -am 'fix: side'", "git checkout -q main", "printf 'main\\n' > a.txt && git commit -q -am 'fix: main'", "git merge -q side >/dev/null 2>&1 || true"],
   reply: ok(),
@@ -597,12 +604,22 @@ const repair = (name, o = {}) => add(name, { ...o, skip: { win32: REPAIR, ...(o.
 // command once that is more than 1 MiB: exactly 1 MiB passes, and 600,000
 // bytes that are not UTF-8 are 1.8 MB of U+FFFD, so the hook is still
 // writing when the shell is killed (no commit). Both deterministic: git
-// writes nothing else to stderr during a commit.
+// writes nothing else to stderr during a commit. (LC_ALL=C: in a UTF-8
+// locale macOS's tr writes \377 as the character ÿ, two bytes of UTF-8,
+// and the runner's terminal cases run in one there: terminal.py's python3
+// sets LC_CTYPE=UTF-8 for what it starts.)
 repair("limits: a pre-commit hook that prints 1,048,576 bytes, exactly exec's limit", {
   setup: [hook("pre-commit", 'head -c 1048576 /dev/zero | tr "\\000" x >&2'), ...CHANGES], reply: ok(), normalize: XS, timeout: 120, capture: "files",
 });
 repair("limits: a pre-commit hook that prints 600,000 bytes that are not UTF-8 (1.8 MB once decoded)", {
-  setup: [hook("pre-commit", 'head -c 600000 /dev/zero | tr "\\000" "\\377" >&2'), ...CHANGES], reply: ok(), normalize: [["\\ufffd{200,}", "<REPLACED>"]], timeout: 120, capture: "files",
+  setup: [hook("pre-commit", 'head -c 600000 /dev/zero | LC_ALL=C tr "\\000" "\\377" >&2'), ...CHANGES], reply: ok(), normalize: [["\\ufffd{200,}", "<REPLACED>"]], timeout: 120, capture: "files",
+});
+repair("terminal: a merge with a conflict, only stdout a terminal", {
+  tty: "stdout",
+  skip: { win32: NO_TTY },
+  args: ["-", "resolve"],
+  setup: ["git checkout -q -b side", "printf 'side\\n' > a.txt && git commit -q -am 'fix: side'", "git checkout -q main", "printf 'main\\n' > a.txt && git commit -q -am 'fix: main'", "git merge -q side >/dev/null 2>&1 || true"],
+  reply: ok(),
 });
 // Settings and variables with which git runs a program of the user's while
 // the binary works on its copy: each goes back, wherever git reads it.
