@@ -32,6 +32,12 @@ pub fn variable_hands_back(name: &str) -> bool {
         || matches!(name, "SSL_CERT_FILE" | "SSL_CERT_DIR")
         // The OpenAI SDK reads these (organization, project, logging, …).
         || (name.starts_with("OPENAI_") && !matches!(name, "OPENAI_API_KEY" | "OPENAI_BASE_URL"))
+        // git writes traces (to a file, too) and starts an external diff for
+        // every command, and the binary runs add, status and diff twice (on
+        // its copy of the index, then for real); see commit::PROGRAMS for
+        // the same in git's configuration.
+        || name.starts_with("GIT_TRACE")
+        || name == "GIT_EXTERNAL_DIFF"
 }
 
 /// The whole environment: every name and value valid UTF-8 (node decodes
@@ -154,7 +160,10 @@ mod tests {
         for name in ["BUN_OPTIONS", "NODE_OPTIONS", "NODE_ENV", "FORCE_COLOR", "http_proxy", "OPENAI_ORG_ID", "OPENAI_LOG", "ICU_DATA", "MIMALLOC_VERBOSE"] {
             assert!(variable_hands_back(name), "{name}");
         }
-        for name in ["BUN_INSTALL", "BUN_INSTALL_CACHE_DIR", "OPENAI_API_KEY", "OPENAI_BASE_URL", "NO_COLOR", "TERM", "HOME", "GIT_DIR"] {
+        for name in ["GIT_TRACE", "GIT_TRACE2_EVENT", "GIT_TRACE_PACKET", "GIT_EXTERNAL_DIFF"] {
+            assert!(variable_hands_back(name), "{name}");
+        }
+        for name in ["BUN_INSTALL", "BUN_INSTALL_CACHE_DIR", "OPENAI_API_KEY", "OPENAI_BASE_URL", "NO_COLOR", "TERM", "HOME", "GIT_DIR", "GIT_INDEX_FILE"] {
             assert!(!variable_hands_back(name), "{name}");
         }
     }

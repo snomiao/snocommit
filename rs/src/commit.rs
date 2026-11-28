@@ -35,6 +35,19 @@ use std::path::{Path, PathBuf};
 /// be cut off where the copy's was not.
 const MAX_OUTPUT: usize = 1_000_000;
 
+/// Settings with which git runs a program of the user's while it adds,
+/// shows the status, diffs or logs: a clean filter, a textconv or external
+/// diff, an fsmonitor, a hook set in the configuration (git 2.54 has them;
+/// a `post-index-change` one runs whenever an index is written), signatures
+/// checked by gpg, trace2 files written. The binary adds, shows the status
+/// and diffs twice (on its copy of the index, then for real), so such a
+/// program would run twice, once for the copy (a clean filter that writes
+/// into the work tree changes what the real run sees). Any of them, set
+/// anywhere git reads its configuration, hands the invocation back. As a
+/// regular expression for `git config --get-regexp` (POSIX extended, the
+/// names as git writes them: section and key in small letters).
+const PROGRAMS: &str = "^(filter\\..*\\.(clean|smudge|process)|diff\\..*\\.(textconv|command)|diff\\.external|core\\.fsmonitor|hook\\..*|log\\.showsignature|trace2\\..*)$";
+
 /// The longest message the binary commits; a longer one goes back (a
 /// command line has a limit, and what exec does past it is node's).
 const MAX_MESSAGE: usize = 100_000;
@@ -135,12 +148,7 @@ struct Repo {
 
 impl Repo {
     fn probe(cwd: &Path) -> Result<Repo, HandBack> {
-        let out = std::process::Command::new("git")
-            .args(["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir", "--show-toplevel"])
-            .stdin(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .output()
-            .map_err(|_| HandBack)?;
+        let out = quiet_git(&["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir", "--show-toplevel"], None)?;
         if !out.status.success() {
             return Err(HandBack);
         }
@@ -167,8 +175,38 @@ impl Repo {
                 }
             }
         }
+        // A program of the user's that git would run for the copy too
+        // (PROGRAMS). Exit code 1 is git's "none set".
+        let config = quiet_git(&["config", "--get-regexp", PROGRAMS], None)?;
+        if config.status.code() != Some(1) {
+            return Err(HandBack);
+        }
         Ok(Repo { index: index.clone(), top: top.clone() })
     }
+}
+
+/// `git <args>`, its stdout kept, nothing printed (stdin closed, stderr
+/// dropped), on `index` when one is named.
+fn quiet_git(args: &[&str], index: Option<&OsString>) -> Result<std::process::Output, HandBack> {
+    let mut git = std::process::Command::new("git");
+    git.args(args).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).env_remove(crate::js_fallback::TRACE_ENV);
+    if let Some(index) = index {
+        git.env("GIT_INDEX_FILE", index);
+    }
+    git.output().map_err(|_| HandBack)
+}
+
+/// Whether the index holds a submodule (an entry of mode 160000, also a
+/// repository `git add` has just taken in): `git status` looks into each of
+/// those with a `git status` of its own, which writes that repository's
+/// index and runs its own hooks, filters and fsmonitor, and it would do so
+/// once more for the binary's copy.
+fn has_submodules(index: &OsString) -> Result<bool, HandBack> {
+    let out = quiet_git(&["ls-files", "--stage", "-z"], Some(index))?;
+    if !out.status.success() {
+        return Err(HandBack);
+    }
+    Ok(out.stdout.split(|&b| b == 0).any(|entry| entry.starts_with(b"160000 ")))
 }
 
 /// A directory of the binary's own with a copy of the index, removed when
@@ -359,6 +397,9 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
             return Err(HandBack);
         }
     }
+    if has_submodules(&copy.index)? {
+        return Err(HandBack);
+    }
     let status = sh::run(STATUS, &on_copy, false);
     if copy.mentioned_in(&status) {
         return Err(HandBack);
@@ -497,6 +538,40 @@ mod tests {
         assert_eq!(recent_commits("abc\tA B\t2020-01-01\tfeat: x\ty"), "- abc | A B | 2020-01-01 | feat: x\ty");
         assert_eq!(recent_commits("abc"), "- abc | undefined | undefined | ");
         assert_eq!(recent_commits("a\tb\tc\td\ne\tf\tg\th"), "- a | b | c | d\n- e | f | g | h");
+    }
+
+    #[test]
+    fn settings_that_run_a_program_during_add_status_or_diff() {
+        let dir = std::env::temp_dir().join(format!("snocommit-test-config-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let file = dir.join("config");
+        let lines = [
+            "[filter \"lfs\"]\n\tclean = git-lfs clean -- %f\n\tsmudge = x\n\tprocess = x\n\trequired = true\n",
+            "[diff \"Pdf\"]\n\ttextconv = pdftotext\n\tcommand = x\n\tbinary = true\n[diff]\n\texternal = x\n\tcolorMoved = zebra\n",
+            "[core]\n\tfsmonitor = true\n\tquotePath = false\n[hook \"pic\"]\n\tevent = post-index-change\n\tcommand = x\n",
+            "[log]\n\tshowSignature = true\n\tdate = iso\n[trace2]\n\teventTarget = /tmp/x\n[status]\n\tshowUntrackedFiles = no\n",
+            "[filters \"x\"]\n\tclean = x\n[xfilter \"x\"]\n\tclean = x\n[core]\n\tfsmonitorHookVersion = 2\n",
+        ];
+        std::fs::write(&file, lines.concat()).unwrap();
+        let out = std::process::Command::new("git").args(["config", "--file"]).arg(&file).args(["--name-only", "--get-regexp", PROGRAMS]).output().unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        let names = String::from_utf8(out.stdout).unwrap();
+        assert_eq!(
+            names.lines().collect::<Vec<_>>(),
+            [
+                "filter.lfs.clean",
+                "filter.lfs.smudge",
+                "filter.lfs.process",
+                "diff.Pdf.textconv",
+                "diff.Pdf.command",
+                "diff.external",
+                "core.fsmonitor",
+                "hook.pic.event",
+                "hook.pic.command",
+                "log.showsignature",
+                "trace2.eventtarget",
+            ]
+        );
     }
 
     #[test]
