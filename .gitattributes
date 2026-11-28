@@ -1,0 +1,5 @@
+# The port's files stay LF in Windows checkouts too (core.autocrlf=true):
+# rs/parity/proof.sh is run by Git Bash's sh, which takes a CR for part of a
+# command, and rs/parity.json is compared byte for byte with what
+# rs/parity.gen.mjs writes.
+rs/** text eol=lf

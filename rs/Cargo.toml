@@ -1,0 +1,37 @@
+[package]
+name = "snocommit"
+version = "0.0.0"
+edition = "2021"
+description = "A Simple way to commit changes in current folder."
+license = "MIT"
+
+[[bin]]
+name = "snocommit"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+
+[features]
+default = ["net"]
+# The HTTP client. Switched off only to type-check the rest of the crate for
+# a target whose C compiler is not at hand (ring, underneath rustls, needs
+# one): `cargo check --no-default-features --target <target>`. A binary built
+# without it hands every invocation that would ask the model back to the
+# JavaScript.
+net = ["dep:ureq"]
+
+[dependencies]
+# What the model and the service answer, and ~/.snocommitrc.json.
+serde_json = "1"
+# HTTPS client: blocking, rustls with ring and Mozilla's roots, no system TLS.
+ureq = { version = "3.5.2", default-features = false, features = ["rustls"], optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# poll(2) and kill(2), to read a command's two pipes as node's exec does and
+# to stop it past exec's 1 MiB with SIGTERM (rs/src/sh.rs). Bindings only:
+# the C library every Unix binary links anyway; already in Cargo.lock
+# underneath ring.
+libc = "0.2"

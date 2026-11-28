@@ -69,5 +69,17 @@
     "glob": ">=11.1.0",
     "js-yaml": ">=4.1.1",
     "tar": ">=7.5.2"
+  },
+  "rustify": {
+    "mode": "hybrid",
+    "bins": {
+      "chore": "snocommit",
+      "docs": "snocommit",
+      "feat": "snocommit",
+      "fix": "snocommit",
+      "refactor": "snocommit",
+      "styles": "snocommit"
+    },
+    "rootEnv": "SNOCOMMIT_PACKAGE_ROOT"
   }
 }

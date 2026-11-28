@@ -1,0 +1,98 @@
+# Builds the Rust `snocommit` binary for every platform, proves on Linux,
+# macOS and Windows that it behaves like the TypeScript, packs it together
+# with the JavaScript the package ships (dist/, built here by the project's
+# own `bun run build`), and checks on Linux, macOS and Windows (x64 and arm64)
+# that `bun i -g` / `npm i -g` gives working `chore`, `docs`, `feat`, `fix`,
+# `refactor` and `styles` commands.
+#
+# It does not publish. Releases still go through release.yml.
+#
+# The pipeline lives in https://github.com/snomiao/rustify.
+
+name: rust-npm-release
+
+on:
+  pull_request:
+    # The TypeScript is listed too: the parity proof compares the two, so a
+    # change on either side has to rerun it. postbuild.ts makes the command
+    # files; bun.lock pins the openai SDK the requests are compared with.
+    paths:
+      - "rs/**"
+      - "src/**"
+      - "postbuild.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".gitattributes"
+      - ".github/workflows/rust-npm-release.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without a leading v (default: the version in rs/Cargo.toml)"
+        required: false
+        type: string
+
+jobs:
+  # The crate's own tests (JavaScript's string rules, the scope's
+  # parentheses, the key, the address, the answer), on Linux; rs/parity/proof.sh
+  # runs them on macOS and Windows.
+  unit:
+    name: cargo test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --release --locked --manifest-path rs/Cargo.toml
+
+  build:
+    uses: snomiao/rustify/.github/workflows/rust-npm-build.yml@releases/v1
+    with:
+      manifest: rs/Cargo.toml
+      bins: snocommit
+      version: ${{ inputs.version }}
+      # The commands' files are build products: dist/cli.js, copied to
+      # dist/cli-<type>.js by postbuild.ts. --ignore-scripts keeps `prepare`
+      # (lefthook install) out of the build.
+      js-build: bun install --frozen-lockfile --ignore-scripts && bun run build
+      # Proof that the binary behaves like the TypeScript, on Linux x64, macOS
+      # arm64 and Windows x64, each with the binary just built for it.
+      # rs/parity/proof.sh checks that rs/parity.json is what rs/parity.gen.mjs
+      # writes, then runs its cases in lanes side by side: TypeScript
+      # (node dist/cli-<command>.js) against the binary started under the
+      # command's name, both in git repositories of their own with a bare
+      # repository as the remote, and both through rs/parity/with-mock.mjs, a
+      # stand-in for the OpenAI API on 127.0.0.1 (OPENAI_BASE_URL) that logs
+      # every request, so the request bodies are compared too; on Linux and
+      # macOS the whole file again with stdout and stderr a terminal (--tty
+      # stdout,stderr; python3 is on those runners); then the binary
+      # alone against a stand-in package, once per command, which fails unless
+      # exactly the cases marked `handback` for that system reach the
+      # JavaScript (on Windows, all of them); on macOS and Windows also cargo
+      # test. Nothing reaches OpenAI. Windows starts every program slowly.
+      parity-timeout-minutes: 60
+      parity-platforms: '["linux-x64", "darwin-arm64", "win32-x64"]'
+      parity: >-
+        bun install --frozen-lockfile --ignore-scripts
+        && bun run build
+        && sh rs/parity/proof.sh "$RUSTIFY_PARITY" "$RUSTIFY_BIN_DIR/snocommit"
+      # After installing, on every platform. The binary answers only inside a
+      # git repository, and the smoke test runs in its own working directory,
+      # which is none, so every line goes to the JavaScript, as marked. Given
+      # a scope and a description outside a repository, the JavaScript's git
+      # commands fail and it ends with "No files staged to commit." (exit 0),
+      # before it would look for a key or ask the model. Without a
+      # description it stops at "Missing description (desc)", an unhandled
+      # rejection (exit code 1); the file name in its stack trace shows that
+      # the binary chose the command's own file.
+      # `snocommit` is not one of the binary's commands: package.json points it
+      # at dist/cli-snocommit.js, which the build never makes, so npm and bun
+      # install no such command, today as well.
+      smoke: "[1] feat"
+      smoke-expect: Missing description (desc)
+      smoke-extra: |
+        [handback] feat . smoke => No files staged to commit.
+        [1] [handback] chore => cli-chore.js !> commit type not found
+        [1] [handback] docs => cli-docs.js !> commit type not found
+        [1] [handback] feat => cli-feat.js !> commit type not found
+        [1] [handback] fix => cli-fix.js !> commit type not found
+        [1] [handback] refactor => cli-refactor.js !> commit type not found
+        [1] [handback] styles => cli-styles.js !> commit type not found
