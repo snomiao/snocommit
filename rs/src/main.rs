@@ -4,8 +4,20 @@
 //! here once it has been ported and a parity test shows it behaves like the
 //! TypeScript; until then it is handed back to the JavaScript the package
 //! still ships, so nothing changes for users.
+//!
+//! The six commands (chore, docs, feat, fix, refactor, styles) are one
+//! program, which takes its commit type from the name it was started as.
+//! Ported: their whole pipeline on Linux and macOS (rs/src/commit.rs), for
+//! every invocation and state of the machine it reproduces exactly; the rest
+//! goes back. Windows goes back entirely.
 
+mod color;
+mod commit;
+mod gate;
+mod js;
 mod js_fallback;
+mod openai;
+mod sh;
 
 /// The command this binary was started as.
 fn command() -> String {
@@ -36,33 +48,21 @@ fn native() -> bool {
 }
 
 fn main() {
+    let command = command();
     // Arguments that are not valid UTF-8 are for the JavaScript to deal with.
     let args: Option<Vec<String>> = std::env::args_os().skip(1).map(|arg| arg.into_string().ok()).collect();
     if let Some(args) = args.filter(|_| native()) {
-        // Ported commands go here, one arm each, once their parity cases pass.
-        // Everything the binary answers itself belongs in this match,
-        // `--version` included, so that `SNOCOMMIT_NO_NATIVE=1` switches it off.
-        //
-        // An arm takes only the invocations it implements exactly. For the
-        // rest it falls out of the match, before it has printed or changed
-        // anything, and the JavaScript answers. `js_fallback::attempt` is the
-        // guard for that: the command works out its whole answer first and
-        // returns it, or returns `Err(js_fallback::HandBack)`; and should it
-        // panic, the invocation is handed back just the same.
-        //
-        //   Some("status") => {
-        //       if let Some(text) = js_fallback::attempt(|| status::answer(&args[1..])) {
-        //           // A reader that has gone away (`| head`) is not an error.
-        //           let _ = std::io::Write::write_all(&mut std::io::stdout(), text.as_bytes());
-        //           return;
-        //       }
-        //   }
-        // Until the match has two arms of its own, clippy would rather see no
-        // match, or an `if let`.
-        #[allow(clippy::match_single_binding, clippy::single_match)]
-        match args.first().map(String::as_str) {
-            _ => {}
+        // Everything the binary answers itself belongs here, so that
+        // `SNOCOMMIT_NO_NATIVE=1` switches it off. `commit::prepare` works out
+        // the whole invocation without printing or changing anything, or
+        // declines; should it panic, the invocation is handed back just the
+        // same. Only then is the plan carried out, and there is no way back.
+        if matches!(command.as_str(), "chore" | "docs" | "feat" | "fix" | "refactor" | "styles") {
+            let script = js_fallback::package_root().map(|root| root.join(js_entry(&command)));
+            if let Some(plan) = js_fallback::attempt(|| commit::prepare(&command, &args, script.as_deref())) {
+                std::process::exit(plan.carry_out());
+            }
         }
     }
-    js_fallback::run(js_entry(&command()))
+    js_fallback::run(js_entry(&command))
 }
