@@ -97,11 +97,10 @@ fn key_from_rc_text(text: &str) -> Result<Option<String>, HandBack> {
 /// Text that no JSON parser takes: not one of the things serde and
 /// JavaScript disagree about. Conservative: when in doubt, false.
 fn json_parse_also_fails(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let exponent = bytes.windows(2).any(|w| w[0].is_ascii_digit() && matches!(w[1], b'e' | b'E'));
     let longest_digits = text.split(|c: char| !c.is_ascii_digit()).map(str::len).max().unwrap_or(0);
-    !text.contains(['e', 'E', '\\'])
-        && longest_digits < 300
-        && text.len() < 64 * 1024
-        && text.bytes().filter(|b| matches!(b, b'[' | b'{')).count() < 100
+    !exponent && !text.contains('\\') && longest_digits < 300 && text.len() < 64 * 1024 && bytes.iter().filter(|b| matches!(b, b'[' | b'{')).count() < 100
 }
 
 /// Where the request goes: `${baseURL}/chat/completions`, with the base from
@@ -306,6 +305,9 @@ mod tests {
         assert_eq!(key_from_rc_text(r#"{"OPENAI_API_KEY":5}"#).unwrap(), None);
         assert_eq!(key_from_rc_text("[1]").unwrap(), None);
         assert_eq!(key_from_rc_text("{oops").unwrap(), None);
+        assert_eq!(key_from_rc_text(r#"{"OPENAI_API_KEY":"sk-0123456789abcdefghij",}"#).unwrap(), None);
+        assert!(key_from_rc_text(r#"{"OPENAI_API_KEY":"sk-0123456789abcdefghij","n":1E5,}"#).is_err());
+        assert!(key_from_rc_text(r#"{"OPENAI_API_KEY":"\ud800",}"#).is_err());
         assert!(key_from_rc_text(r#"{"x":1e999,"OPENAI_API_KEY":"sk-0123456789abcdefghij"}"#).is_err());
     }
 

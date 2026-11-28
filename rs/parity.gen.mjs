@@ -146,6 +146,7 @@ add("prompt: a subject and an author with tabs, bars and other scripts", {
   setup: ["printf 'x\\n' >> a.txt && GIT_AUTHOR_NAME='Ünï | Cödé' git commit -q -am \"$(printf 'feat: a\\tb | c 日本')\"", "git push -q", ...CHANGES],
   reply: ok(),
 });
+add("prompt: a file with CRLF line ends", { setup: ["printf 'one\\r\\ntwo\\r\\n' > crlf.txt"], reply: ok() });
 add("prompt: a deleted file", { setup: ["git rm -q a.txt", "printf 'bee\\n' > b.txt"], reply: ok() });
 add("prompt: a binary file", { setup: ["printf 'a\\000b' > bin.dat"], reply: ok() });
 add("prompt: twelve files", { setup: [...Array.from({ length: 12 }, (_, i) => `printf '${i}\\n' > f${String(i).padStart(2, "0")}.txt`)], reply: ok() });
@@ -248,6 +249,8 @@ add("key: ~/.snocommitrc.json holds a number only JavaScript reads", {
   reply: ok(),
   handback: "an rc file that only JSON.parse reads",
 });
+add("key: ~/.snocommitrc.json with a comma JSON.parse refuses", { setup: [rc(`{"OPENAI_API_KEY":"${RC_KEY}",}`), ...CHANGES], reply: ok() });
+add("key: OPENAI_API_KEY with a line feed at its end", { env: { OPENAI_API_KEY: `${KEY}\n` }, reply: ok(), handback: "a key with a character other than printable ASCII" });
 add("key: OPENAI_API_KEY of 21 characters", { env: { OPENAI_API_KEY: "sk-0123456789abcdefgh" }, reply: ok() });
 add("key: OPENAI_API_KEY too short, and no answer on stdin", { env: { OPENAI_API_KEY: "sk-short" }, reply: ok(), handback: ASKS });
 add("key: none, and one typed on stdin", {
@@ -282,6 +285,8 @@ add("model: a tab, other scripts and % in the message", { reply: ok({ title: "ta
 add("model: $ in the message, which the TypeScript's shell expands", { reply: ok({ body: "uses $TZ and ${GIT_AUTHOR_NAME}" }), asked: true, handback: SHELL });
 add("model: a backquote in the message, which the TypeScript's shell runs", { reply: ok({ body: "run `echo injected`" }), asked: true, handback: SHELL });
 add("model: a backslash in the message", { reply: ok({ title: "a \\n b" }), asked: true, handback: SHELL });
+add("model: a NUL in the message", { reply: ok({ body: "a\u0000b" }), asked: true, handback: "a control character in the message" });
+add("model: a line separator in the title", { reply: ok({ title: "one\u2028two" }) });
 add("model: a carriage return in the message", { reply: ok({ body: "a\r\nb" }), asked: true, handback: "a control character in the message" });
 
 // ── the service ────────────────────────────────────────────────────────────

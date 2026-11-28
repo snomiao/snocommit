@@ -636,6 +636,33 @@
    }
   },
   {
+   "name": "[feat] prompt: a file with CRLF line ends",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf 'one\\r\\ntwo\\r\\n' > crlf.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": {
+    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
+   }
+  },
+  {
    "name": "[feat] prompt: a deleted file",
    "args": [
     "feat",
@@ -1752,6 +1779,62 @@
    "handback": "an rc file that only JSON.parse reads"
   },
   {
+   "name": "[feat] key: ~/.snocommitrc.json with a comma JSON.parse refuses",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf '%s' '{\"OPENAI_API_KEY\":\"sk-parity-rc-0123456789abcdefg\",}' > <HOME>/.snocommitrc.json",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": {
+    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
+   }
+  },
+  {
+   "name": "[feat] key: OPENAI_API_KEY with a line feed at its end",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "OPENAI_API_KEY": "sk-parity-env-0123456789abcdef\n",
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": "a key with a character other than printable ASCII"
+  },
+  {
    "name": "[feat] key: OPENAI_API_KEY of 21 characters",
    "args": [
     "feat",
@@ -2429,6 +2512,60 @@
     "sort -u <ROOT>/openai.log"
    ],
    "handback": "the shell would run, substitute or redirect part of this command line (the TypeScript lets it)"
+  },
+  {
+   "name": "[feat] model: a NUL in the message",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"a\\\\u0000b\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "sort -u <ROOT>/openai.log"
+   ],
+   "handback": "a control character in the message"
+  },
+  {
+   "name": "[feat] model: a line separator in the title",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"one two\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": {
+    "win32": "every invocation goes back to the JavaScript on Windows, whose exec runs cmd.exe (rs/src/commit.rs prepare)"
+   }
   },
   {
    "name": "[feat] model: a carriage return in the message",
