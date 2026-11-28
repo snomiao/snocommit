@@ -221,7 +221,13 @@ impl Copy {
         let base = cwd.join(std::env::temp_dir());
         let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
         let dir = base.join(format!("snocommit-{}-{stamp}", std::process::id()));
-        std::fs::create_dir(&dir).map_err(|_| HandBack)?;
+        // The copy lists every path of the repository with its object ids,
+        // and TMPDIR is usually /tmp, which every user of the machine reads:
+        // the directory is the user's alone (0700, whatever the umask).
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        builder.create(&dir).map_err(|_| HandBack)?;
         let copy = Copy { index: dir.join("index").into_os_string(), dir };
         match std::fs::metadata(index) {
             Ok(meta) if meta.is_file() => {
@@ -538,6 +544,23 @@ mod tests {
         assert_eq!(recent_commits("abc\tA B\t2020-01-01\tfeat: x\ty"), "- abc | A B | 2020-01-01 | feat: x\ty");
         assert_eq!(recent_commits("abc"), "- abc | undefined | undefined | ");
         assert_eq!(recent_commits("a\tb\tc\td\ne\tf\tg\th"), "- a | b | c | d\n- e | f | g | h");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_copy_of_the_index_is_the_users_alone_and_goes_away() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("snocommit-test-copy-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let index = dir.join("index");
+        std::fs::write(&index, b"DIRC").unwrap();
+        let copy = Copy::of(&index, &dir).unwrap();
+        assert_eq!(std::fs::metadata(&copy.dir).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(std::fs::read(&copy.index).unwrap(), b"DIRC");
+        let copied = copy.dir.clone();
+        drop(copy);
+        assert!(!copied.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
