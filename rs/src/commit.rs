@@ -144,17 +144,20 @@ fn package_dir(cwd: &Path) -> Option<&Path> {
 struct Repo {
     index: PathBuf,
     top: PathBuf,
+    /// Whether git has a hook to run (the hooks directory, core.hooksPath
+    /// included): a file there that can be run, other than git's samples.
+    hooks: bool,
 }
 
 impl Repo {
     fn probe(cwd: &Path) -> Result<Repo, HandBack> {
-        let out = quiet_git(&["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir", "--show-toplevel"], None)?;
+        let out = quiet_git(&["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir", "--show-toplevel", "--git-path", "hooks"], None)?;
         if !out.status.success() {
             return Err(HandBack);
         }
         let text = String::from_utf8(out.stdout).map_err(|_| HandBack)?;
         let paths: Vec<PathBuf> = text.lines().map(|line| cwd.join(line)).collect();
-        let [index, hook, git_dir, top] = paths.as_slice() else {
+        let [index, hook, git_dir, top, hooks] = paths.as_slice() else {
             return Err(HandBack);
         };
         let present = |path: &Path| !matches!(std::fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound);
@@ -181,8 +184,27 @@ impl Repo {
         if config.status.code() != Some(1) {
             return Err(HandBack);
         }
-        Ok(Repo { index: index.clone(), top: top.clone() })
+        Ok(Repo { index: index.clone(), top: top.clone(), hooks: has_hooks(hooks)? })
     }
+}
+
+/// Whether `dir` (git's hooks directory) holds a hook git would run.
+fn has_hooks(dir: &Path) -> Result<bool, HandBack> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(_) => return Err(HandBack),
+    };
+    for entry in entries {
+        let entry = entry.map_err(|_| HandBack)?;
+        if entry.file_name().to_string_lossy().ends_with(".sample") {
+            continue;
+        }
+        if gate::is_executable_file(&entry.path()) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// `git <args>`, its stdout kept, nothing printed (stdin closed, stderr
@@ -371,9 +393,7 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
         return Err(HandBack);
     }
     let home = ["HOME", "USERPROFILE"].iter().find_map(|name| std::env::var_os(name).filter(|v| !v.is_empty())).map(PathBuf::from);
-    if !gate::nothing_for_bun(&cwd, home.as_deref()) && !gate::runtime_is_node(&cwd) {
-        return Err(HandBack);
-    }
+    let for_bun = !gate::nothing_for_bun(&cwd, home.as_deref());
     let add = match scope.as_str() {
         "-" => None,
         "." => Some("git add .".to_string()),
@@ -393,6 +413,16 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
     let colour = color::stdout_has_colour(|name| std::env::var(name).ok(), std::io::IsTerminal::is_terminal(&std::io::stdout()));
 
     let repo = Repo::probe(&cwd)?;
+    // Where bun may run the JavaScript: the files it reads and warns about,
+    // and hooks. bun's exec, unlike node's, leaves the pipes open when it
+    // kills a command past 1 MiB, so a hook that prints that much may still
+    // finish there and its commit be made, depending on timing (on macOS,
+    // where /bin/sh forks git, a pre-commit hook's commit was made under bun
+    // on a terminal and not into files); how much a hook prints is known only
+    // once it runs.
+    if (for_bun || repo.hooks) && !gate::runtime_is_node(&cwd) {
+        return Err(HandBack);
+    }
     let copy = Copy::of(&repo.index, &cwd)?;
     // A temp directory inside the work tree: the copy would be among the
     // changes the copy's status shows.

@@ -125,14 +125,15 @@ fn says_it_is_node(node: &Path, cwd: &Path) -> bool {
     status.is_some_and(|s| s.success()) && matches!(answer, Ok(Some(text)) if text == b"undefined,undefined")
 }
 
+/// A file (after links) that can be run.
 #[cfg(unix)]
-fn is_executable_file(path: &Path) -> bool {
+pub fn is_executable_file(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
     std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
 #[cfg(not(unix))]
-fn is_executable_file(path: &Path) -> bool {
+pub fn is_executable_file(path: &Path) -> bool {
     path.is_file()
 }
 
