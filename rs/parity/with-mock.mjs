@@ -138,8 +138,14 @@ function runtimePath() {
     process.exit(2);
   }
   shims = fs.mkdtempSync(path.join(os.tmpdir(), "parity-runtime-"));
-  if (isWindows) fs.copyFileSync(bun, path.join(shims, "node.exe"));
-  else fs.symlinkSync(fs.realpathSync(bun), path.join(shims, "node"));
+  if (isWindows) {
+    // A hard link where the temp directory is on bun's volume; else a copy.
+    try {
+      fs.linkSync(bun, path.join(shims, "node.exe"));
+    } catch {
+      fs.copyFileSync(bun, path.join(shims, "node.exe"));
+    }
+  } else fs.symlinkSync(fs.realpathSync(bun), path.join(shims, "node"));
   return { [pathKey]: `${shims}${path.delimiter}${process.env[pathKey] ?? ""}` };
 }
 
