@@ -61,7 +61,9 @@ jobs:
       # command's name, both in git repositories of their own with a bare
       # repository as the remote, and both through rs/parity/with-mock.mjs, a
       # stand-in for the OpenAI API on 127.0.0.1 (OPENAI_BASE_URL) that logs
-      # every request, so the request bodies are compared too; then the binary
+      # every request, so the request bodies are compared too; on Linux and
+      # macOS the whole file again with stdout and stderr a terminal (--tty
+      # stdout,stderr; python3 is on those runners); then the binary
       # alone against a stand-in package, once per command, which fails unless
       # exactly the cases marked `handback` for that system reach the
       # JavaScript (on Windows, all of them); on macOS and Windows also cargo
