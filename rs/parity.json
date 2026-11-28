@@ -3187,6 +3187,61 @@
    "handback": "a split index, whose shared part a copy would share"
   },
   {
+   "name": "[feat] git: the temp directory inside the work tree",
+   "args": [
+    "feat",
+    ".",
+    "add the second file"
+   ],
+   "env": {
+    "TMPDIR": "<CWD>/tmp",
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "mkdir tmp",
+    "printf 'two\\n' >> a.txt",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": "the binary's copy of the index would be among the changes"
+  },
+  {
+   "name": "[feat] git: the temp directory inside the work tree, scope -",
+   "args": [
+    "feat",
+    "-",
+    "untracked"
+   ],
+   "env": {
+    "TMPDIR": "<CWD>/tmp",
+    "PARITY_OPENAI": "{\"content\":\"{\\\"type\\\":\\\"feat\\\",\\\"scope\\\":\\\"core\\\",\\\"title\\\":\\\"add the second file\\\",\\\"body\\\":\\\"Adds b.txt and a line to a.txt.\\\",\\\"is_BREAKING_CHANGE\\\":false}\"}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git init -q --bare -b main <ROOT>/remote.git",
+    "git remote add origin <ROOT>/remote.git",
+    "printf 'one\\n' > a.txt && git add a.txt && git commit -q -m 'chore: start' && git push -q -u origin main",
+    "mkdir tmp",
+    "printf 'bee\\n' > b.txt"
+   ],
+   "after": [
+    "git log --format='%h %an %ad %s%n%b' --date=iso HEAD",
+    "git status --porcelain",
+    "git -C <ROOT>/remote.git log --format='%h %s' main",
+    "cat <ROOT>/openai.log"
+   ],
+   "handback": "the binary's copy of the index would be among the changes"
+  },
+  {
    "name": "[feat] git: a linked worktree",
    "args": [
     "feat",

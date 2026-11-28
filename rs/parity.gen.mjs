@@ -338,6 +338,14 @@ add("git: a commit-msg hook sees the message and the key", {
 add("git: a post-index-change hook", { setup: [hook("post-index-change", "exit 0"), ...CHANGES], reply: ok(), handback: "git would run the hook for the binary's copy of the index too" });
 add("git: another git holds the index lock", { setup: [...CHANGES, "touch .git/index.lock"], reply: ok(), handback: "the index is locked" });
 add("git: a split index", { setup: ["git update-index --split-index", ...CHANGES], reply: ok(), handback: "a split index, whose shared part a copy would share" });
+add("git: the temp directory inside the work tree", { env: { TMPDIR: "<CWD>/tmp" }, setup: ["mkdir tmp", ...CHANGES], reply: ok(), handback: "the binary's copy of the index would be among the changes" });
+add("git: the temp directory inside the work tree, scope -", {
+  args: ["-", "untracked"],
+  env: { TMPDIR: "<CWD>/tmp" },
+  setup: ["mkdir tmp", "printf 'bee\\n' > b.txt"],
+  reply: ok(),
+  handback: "the binary's copy of the index would be among the changes",
+});
 add("git: a linked worktree", {
   env: { PARITY_CD: "../wt" },
   setup: ["git worktree add -q -b side <ROOT>/wt", "cd <ROOT>/wt && printf 'w\\n' > w.txt"],

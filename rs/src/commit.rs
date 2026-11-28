@@ -128,12 +128,13 @@ fn package_dir(cwd: &Path) -> Option<&Path> {
 /// Where git keeps what the binary must look at before it copies the index.
 struct Repo {
     index: PathBuf,
+    top: PathBuf,
 }
 
 impl Repo {
     fn probe(cwd: &Path) -> Result<Repo, HandBack> {
         let out = std::process::Command::new("git")
-            .args(["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir"])
+            .args(["rev-parse", "--git-path", "index", "--git-path", "hooks/post-index-change", "--git-dir", "--show-toplevel"])
             .stdin(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .output()
@@ -143,7 +144,7 @@ impl Repo {
         }
         let text = String::from_utf8(out.stdout).map_err(|_| HandBack)?;
         let paths: Vec<PathBuf> = text.lines().map(|line| cwd.join(line)).collect();
-        let [index, hook, git_dir] = paths.as_slice() else {
+        let [index, hook, git_dir, top] = paths.as_slice() else {
             return Err(HandBack);
         };
         let present = |path: &Path| !matches!(std::fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound);
@@ -164,7 +165,7 @@ impl Repo {
                 }
             }
         }
-        Ok(Repo { index: index.clone() })
+        Ok(Repo { index: index.clone(), top: top.clone() })
     }
 }
 
@@ -197,9 +198,13 @@ impl Copy {
         Ok(copy)
     }
 
+    /// Whether a command's output names the copy's directory: by its whole
+    /// path (an error about the copy), or by its own name, as a status or a
+    /// diff does where the temp directory lies inside the work tree, and the
+    /// copy would be among the changes.
     fn mentioned_in(&self, out: &sh::Output) -> bool {
-        let dir = self.dir.as_os_str().as_encoded_bytes();
-        let has = |bytes: &[u8]| bytes.windows(dir.len()).any(|w| w == dir);
+        let name = self.dir.file_name().map(|n| n.as_encoded_bytes()).unwrap_or_default();
+        let has = |bytes: &[u8]| !name.is_empty() && bytes.windows(name.len()).any(|w| w == name);
         has(&out.stdout) || has(&out.stderr)
     }
 }
@@ -338,6 +343,12 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
 
     let repo = Repo::probe(&cwd)?;
     let copy = Copy::of(&repo.index, &cwd)?;
+    // A temp directory inside the work tree: the copy would be among the
+    // changes the copy's status shows.
+    let real = |path: &Path| std::fs::canonicalize(path).map_err(|_| HandBack);
+    if real(&copy.dir)?.starts_with(real(&repo.top)?) {
+        return Err(HandBack);
+    }
     let on_copy = [("GIT_INDEX_FILE", Some(&copy.index))];
     if let Some(add) = &add {
         let out = sh::run(add, &on_copy, false);
@@ -347,6 +358,9 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
         }
     }
     let status = sh::run(STATUS, &on_copy, false);
+    if copy.mentioned_in(&status) {
+        return Err(HandBack);
+    }
     let lines: Vec<String> = js::trim_end(clean(&status)?).split('\n').map(js::trim).filter(|line| !line.is_empty()).map(str::to_string).collect();
     if lines.is_empty() {
         return Ok(Plan { colour, add, status, commit: None });
@@ -359,6 +373,9 @@ pub fn prepare(command: &str, args: &[String], script: Option<&Path>) -> Result<
             return Err(HandBack);
         }
         let out = sh::run(&command, &on_copy, false);
+        if copy.mentioned_in(&out) {
+            return Err(HandBack);
+        }
         shown.push((line.clone(), truncated(js::trim_end(clean(&out)?))?));
         diffs.push((command, out));
     }
