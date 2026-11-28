@@ -25,10 +25,10 @@
 //
 // rs/parity/with-mock.mjs starts the command (see there) against a stand-in
 // for the OpenAI API on 127.0.0.1, whose address it hands the command in
-// OPENAI_BASE_URL, and writes down every request the stand-in got; most
-// cases print that log afterwards. So a case compares what the two
-// implementations asked the model for, byte for byte, and not only what they
-// printed. A case runs in a git repository of its own, with a bare
+// OPENAI_BASE_URL, and writes down every request the stand-in got (one line
+// each, the body as it came); most cases print that log afterwards. So a
+// case compares what the two implementations asked the model for, byte for
+// byte, and not only what they printed. A case runs in a git repository of its own, with a bare
 // repository of its own under <ROOT> as the remote that is pulled from and
 // pushed to, and fixed names and dates for every commit, so that hashes
 // are the same on both sides.

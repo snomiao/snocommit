@@ -18,9 +18,9 @@
 //
 // What the case says, in variables the command does not get:
 //
-//   PARITY_LOG=<file>       where the requests go, one JSON line each:
-//                           method, path, Authorization, Content-Type, Accept
-//                           and the body as it came (required)
+//   PARITY_LOG=<file>       where the requests go, one line each: method,
+//                           path, Authorization, Content-Type, Accept and the
+//                           body as it came, between tabs (required)
 //   PARITY_OPENAI=<json>    what the server answers: one reply or a list of
 //                           them used in turn, the last one repeating:
 //                             { "content": "<text>" }  a chat completion whose
@@ -95,15 +95,12 @@ const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", () => {
-    const entry = {
-      method: req.method,
-      path: req.url,
-      authorization: req.headers.authorization ?? null,
-      contentType: req.headers["content-type"] ?? null,
-      accept: req.headers.accept ?? null,
-      body: Buffer.concat(chunks).toString("utf8"),
-    };
-    fs.appendFileSync(logFile, `${JSON.stringify(entry)}\n`);
+    // One line, the body as it came: both sides send JSON, which has no line
+    // feed or tab of its own, and a path in it (the prompt's cwd) is spelt
+    // once escaped, as the parity runner recognises it on Windows.
+    const header = (name) => req.headers[name] ?? "(none)";
+    const body = Buffer.concat(chunks).toString("utf8");
+    fs.appendFileSync(logFile, `${[req.method, req.url, header("authorization"), header("content-type"), header("accept"), body].join("\t")}\n`);
     const reply = replies[Math.min(turn++, replies.length - 1)];
     if (reply.status === undefined) {
       res.writeHead(200, { "content-type": "application/json" });
