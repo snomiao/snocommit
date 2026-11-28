@@ -28,3 +28,10 @@ net = ["dep:ureq"]
 serde_json = "1"
 # HTTPS client: blocking, rustls with ring and Mozilla's roots, no system TLS.
 ureq = { version = "3.5.2", default-features = false, features = ["rustls"], optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# poll(2) and kill(2), to read a command's two pipes as node's exec does and
+# to stop it past exec's 1 MiB with SIGTERM (rs/src/sh.rs). Bindings only:
+# the C library every Unix binary links anyway; already in Cargo.lock
+# underneath ring.
+libc = "0.2"

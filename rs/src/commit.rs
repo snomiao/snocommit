@@ -29,8 +29,10 @@ use crate::{color, gate, js, sh};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-/// Output larger than this from any git command goes back: node's `exec`
-/// kills a command at 1 MiB of output, at a point that depends on timing.
+/// Output larger than this from any git command run on the copy goes back,
+/// counted as exec counts it (bytes of the decoded text): node's `exec`
+/// kills a command past 1 MiB (sh::MAX_BUFFER), and the real run would then
+/// be cut off where the copy's was not.
 const MAX_OUTPUT: usize = 1_000_000;
 
 /// The longest message the binary commits; a longer one goes back (a
@@ -216,7 +218,7 @@ impl Drop for Copy {
 }
 
 fn small(out: &sh::Output) -> Result<(), HandBack> {
-    if out.stdout.len() > MAX_OUTPUT || out.stderr.len() > MAX_OUTPUT {
+    if out.code.is_none() || sh::decoded_len(&out.stdout) > MAX_OUTPUT || sh::decoded_len(&out.stderr) > MAX_OUTPUT {
         return Err(HandBack);
     }
     Ok(())
