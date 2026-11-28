@@ -20,6 +20,10 @@
 #   - TypeScript against the binary (SNOCOMMIT_PACKAGE_ROOT lets the binary
 #     hand back to the real dist/cli-<command>.js what it does not answer),
 #     both through rs/parity/with-mock.mjs, the stand-in for the OpenAI API;
+#   - on Linux and macOS the same again with stdout and stderr a terminal
+#     (--tty stdout,stderr; stdin stays a pipe), for every case that does
+#     not say otherwise: the echo of the git commands is blue there, and
+#     what git and its hooks print reaches the terminal as node passed it on;
 #   - then, for each command the lane has cases of, the binary alone against
 #     a stand-in package, which fails unless exactly the cases marked
 #     "handback" for this system reach the JavaScript.
@@ -113,6 +117,20 @@ lane() {
   cases=$logs_for_node/lane-$1.json
   code=0
   node "$runner" --cases "$cases" --ts "node rs/parity/with-mock.mjs ts" --rs "env SNOCOMMIT_PACKAGE_ROOT=$root node rs/parity/with-mock.mjs $bin" || code=1
+  # On a terminal, into a log of its own: its "all N case(s)" line is not
+  # the plain run's. All of it goes into the lane's log when it fails.
+  case "$platform" in
+    win32*) ;;
+    *)
+      tty_log=$logs/lane-$1.tty.log
+      if ! node "$runner" --cases "$cases" --tty stdout,stderr --ts "node rs/parity/with-mock.mjs ts" --rs "env SNOCOMMIT_PACKAGE_ROOT=$root node rs/parity/with-mock.mjs $bin" > "$tty_log" 2>&1; then
+        code=1
+        echo "on a terminal (--tty stdout,stderr):"
+        cat "$tty_log"
+      fi
+      sed -n 's/^all \([0-9]*\) case(s) behave the same$/on a terminal: \1/p' "$tty_log"
+      ;;
+  esac
   # (Not $name: start() still needs it when this returns.)
   for program in $(cat "$logs/lane-$1.commands"); do
     node "$runner" --cases "$cases" --filter "[$program]" --rs "node rs/parity/with-mock.mjs $bin" --handback "SNOCOMMIT_PACKAGE_ROOT=dist/cli-$program.js" || code=1
@@ -138,7 +156,7 @@ wait
 node_is=$(node -e "process.stdout.write(process.versions.bun ? 'bun ' + process.versions.bun + ' as node' : process.version)")
 echo "proof on $platform with node $node_is, bun $(bun --version 2> /dev/null || echo none), $lanes lane(s):$runs"
 failed=0
-same=0 native=0 back=0
+same=0 native=0 back=0 on_tty=0
 for name in $runs; do
   code=$(cat "$logs/$name.exit" 2> /dev/null || echo "no exit code")
   if [ "$code" != 0 ]; then
@@ -151,6 +169,7 @@ for name in $runs; do
     lane*)
       count=$(sed -n 's/^all \([0-9]*\) case(s) behave the same$/\1/p' "$logs/$name.log")
       same=$((same + count))
+      for count in $(sed -n 's/^on a terminal: \([0-9]*\)$/\1/p' "$logs/$name.log"); do on_tty=$((on_tty + count)); done
       for count in $(sed -n 's/^\([0-9]*\) case(s) answered by the binary, .*/\1/p' "$logs/$name.log"); do native=$((native + count)); done
       for count in $(sed -n 's/^.* answered by the binary, \([0-9]*\) handed back .*/\1/p' "$logs/$name.log"); do back=$((back + count)); done
       ;;
@@ -159,6 +178,10 @@ for name in $runs; do
 done
 if [ "$failed" = 0 ]; then
   echo "parity: all $same case(s) behave the same; $native answered by the binary, $back handed back to the JavaScript, as the cases say"
+  case "$platform" in
+    win32*) echo "on a terminal: not here (no pseudo-terminal on Windows)" ;;
+    *) echo "on a terminal (--tty stdout,stderr): all $on_tty case(s) behave the same" ;;
+  esac
   # The compare run of each lane names the cases skipped here, and why (the
   # hand-back runs skip them again, per command): the reasons, from the
   # compare runs only.
