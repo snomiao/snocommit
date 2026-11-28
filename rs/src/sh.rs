@@ -61,16 +61,19 @@ pub fn run(command: &str, extra: &[(&str, Option<&OsString>)], forward: bool) ->
     // node never writes to the child's stdin and does not close it while the
     // child runs: a program that reads it waits, as it did there.
     let stdin = child.stdin.take();
-    let [stdout, stderr] = collect(&mut child, forward);
+    let ([stdout, stderr], whole) = collect(&mut child, forward);
     let status = child.wait();
     drop(stdin);
-    Output { stdout, stderr, code: status.ok().and_then(|s| s.code()) }
+    // Output that could not be read to its end has no exit code either: the
+    // binary hands such a command back while it still can (commit::small).
+    Output { stdout, stderr, code: status.ok().and_then(|s| s.code()).filter(|_| whole) }
 }
 
 /// Reads the child's stdout and stderr as exec does (see the top of this
 /// file), passing them on when `forward`, until both have ended or one has
 /// passed `MAX_BUFFER`; in that case both pipes are closed and the shell is
-/// sent SIGTERM. Returns the bytes each pipe gave.
+/// sent SIGTERM. Returns the bytes each pipe gave, and whether they were
+/// read to their end (or to exec's limit) without a failure.
 ///
 /// The order is libuv's, which node reads the pipes with: the pipes are
 /// taken in the order the kernel says they became readable (epoll on Linux,
@@ -79,7 +82,7 @@ pub fn run(command: &str, extra: &[(&str, Option<&OsString>)], forward: bool) ->
 /// So when git writes an error to stderr and then a line to stdout, the two
 /// reach a terminal they share in that order, also when both were waiting.
 #[cfg(unix)]
-fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
+fn collect(child: &mut std::process::Child, forward: bool) -> ([Vec<u8>; 2], bool) {
     use std::io::Read;
     use std::os::fd::{AsRawFd, OwnedFd};
     let mut pipes: [Option<std::fs::File>; 2] = [
@@ -103,9 +106,11 @@ fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
     // As much as libuv reads at a time.
     let mut buf = vec![0u8; 65536];
     let mut over = false;
+    let mut whole = true;
     'reading: while pipes.iter().any(Option::is_some) {
         let Some(order) = ready.wait(&pipes) else {
             // Cannot wait on them: close them, as exec would on an error.
+            whole = false;
             break;
         };
         for i in order {
@@ -120,7 +125,10 @@ fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                    Err(_) => (text[i].end(), true, false),
+                    Err(_) => {
+                        whole = false;
+                        (text[i].end(), true, false)
+                    }
                 };
                 reads += 1;
                 counted[i] += piece.len();
@@ -153,11 +161,30 @@ fn collect(child: &mut std::process::Child, forward: bool) -> [Vec<u8>; 2] {
             unsafe { libc::kill(pid, libc::SIGTERM) };
         }
     }
-    kept
+    (kept, whole)
+}
+
+/// poll(2) on the pipes still open: which are readable, but not in which
+/// order they became so. The fallback where no epoll or kqueue is at hand.
+#[cfg(unix)]
+fn poll_ready(pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+    use std::os::fd::AsRawFd;
+    let open: Vec<usize> = (0..2).filter(|&i| pipes[i].is_some()).collect();
+    let mut fds: Vec<libc::pollfd> = open.iter().map(|&i| libc::pollfd { fd: pipes[i].as_ref().map_or(-1, |f| f.as_raw_fd()), events: libc::POLLIN, revents: 0 }).collect();
+    loop {
+        // SAFETY: `fds` is a live array of `fds.len()` pollfd structures.
+        let n = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, -1) };
+        if n >= 0 {
+            return Some(fds.iter().zip(&open).filter(|(fd, _)| fd.revents != 0).map(|(_, &i)| i).collect());
+        }
+        if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+            return None;
+        }
+    }
 }
 
 /// Which of the pipes can be read, in the order they became readable: an
-/// epoll set on Linux.
+/// epoll set on Linux (poll where none can be made).
 #[cfg(any(target_os = "linux", target_os = "android"))]
 struct Ready {
     epoll: Option<std::os::fd::OwnedFd>,
@@ -185,8 +212,10 @@ impl Ready {
         Ready { epoll: Some(epoll) }
     }
 
-    fn wait(&mut self, _pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
-        let epoll = std::os::fd::AsRawFd::as_raw_fd(self.epoll.as_ref()?);
+    fn wait(&mut self, pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+        let Some(epoll) = self.epoll.as_ref().map(std::os::fd::AsRawFd::as_raw_fd) else {
+            return poll_ready(pipes);
+        };
         let mut events = [libc::epoll_event { events: 0, u64: 0 }; 2];
         loop {
             // SAFETY: `events` has room for the 2 events asked for.
@@ -241,8 +270,10 @@ impl Ready {
         Ready { kqueue: Some(kqueue) }
     }
 
-    fn wait(&mut self, _pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
-        let kqueue = std::os::fd::AsRawFd::as_raw_fd(self.kqueue.as_ref()?);
+    fn wait(&mut self, pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
+        let Some(kqueue) = self.kqueue.as_ref().map(std::os::fd::AsRawFd::as_raw_fd) else {
+            return poll_ready(pipes);
+        };
         let empty = libc::kevent { ident: 0, filter: 0, flags: 0, fflags: 0, data: 0, udata: std::ptr::null_mut() };
         let mut events = [empty; 2];
         loop {
@@ -264,8 +295,7 @@ impl Ready {
     }
 }
 
-/// Elsewhere poll(2), which says which pipes are readable but not in which
-/// order they became so (the binary is built for Linux and macOS).
+/// Elsewhere poll(2) (the binary is built for Linux and macOS).
 #[cfg(all(unix, not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "ios"))))]
 struct Ready;
 
@@ -276,19 +306,7 @@ impl Ready {
     }
 
     fn wait(&mut self, pipes: &[Option<std::fs::File>; 2]) -> Option<Vec<usize>> {
-        use std::os::fd::AsRawFd;
-        let open: Vec<usize> = (0..2).filter(|&i| pipes[i].is_some()).collect();
-        let mut fds: Vec<libc::pollfd> = open.iter().map(|&i| libc::pollfd { fd: pipes[i].as_ref().map_or(-1, |f| f.as_raw_fd()), events: libc::POLLIN, revents: 0 }).collect();
-        loop {
-            // SAFETY: `fds` is a live array of `fds.len()` pollfd structures.
-            let n = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, -1) };
-            if n >= 0 {
-                return Some(fds.iter().zip(&open).filter(|(fd, _)| fd.revents != 0).map(|(_, &i)| i).collect());
-            }
-            if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
-                return None;
-            }
-        }
+        poll_ready(pipes)
     }
 
     fn forget(&mut self, _fd: i32) {}
@@ -297,7 +315,7 @@ impl Ready {
 /// Elsewhere (Windows) the binary hands every invocation back before it runs
 /// a command (commit::prepare); this only keeps the crate whole there.
 #[cfg(not(unix))]
-fn collect(child: &mut std::process::Child, _forward: bool) -> [Vec<u8>; 2] {
+fn collect(child: &mut std::process::Child, _forward: bool) -> ([Vec<u8>; 2], bool) {
     use std::io::Read;
     let mut out = Vec::new();
     let mut err = Vec::new();
@@ -307,7 +325,7 @@ fn collect(child: &mut std::process::Child, _forward: bool) -> [Vec<u8>; 2] {
     if let Some(mut pipe) = child.stderr.take() {
         let _ = pipe.read_to_end(&mut err);
     }
-    [out, err]
+    ([out, err], true)
 }
 
 /// Writes a piece of a child's stdout (0) or stderr (1) to ours. A reader
